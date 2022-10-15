@@ -181,7 +181,7 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
         # retrieve objects under ego coordinates
         object_bbx_center, object_bbx_mask, object_ids = \
             self.post_processor.generate_object_center([selected_cav_base],
-                                                       ego_pose)
+                                                       transformation_matrix)
 
         # filter lidar
         lidar_np = selected_cav_base['lidar_np']
