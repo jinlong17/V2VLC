@@ -153,6 +153,8 @@ def main():
                        os.path.join(saved_path,
                                     'net_epoch%d.pth' % (epoch + 1)))
 
+        opencood_train_dataset.reinitialize()
+
     print('Training Finished, checkpoints saved to %s' % saved_path)
 
 

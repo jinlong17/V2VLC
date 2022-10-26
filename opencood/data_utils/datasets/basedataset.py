@@ -3,7 +3,7 @@ Basedataset class for lidar data pre-processing
 """
 
 import os
-import math
+import random
 from collections import OrderedDict
 
 import torch
@@ -94,22 +94,41 @@ class BaseDataset(Dataset):
             self.max_cav = params['train_params']['max_cav']
 
         # first load all paths of different scenarios
-        scenario_folders = sorted([os.path.join(root_dir, x)
+        self.scenario_folders = sorted([os.path.join(root_dir, x)
                                    for x in os.listdir(root_dir) if
                                    os.path.isdir(os.path.join(root_dir, x))])
+        self.reinitialize()
+
+    def __len__(self):
+        return self.len_record[-1]
+
+    def __getitem__(self, idx):
+        """
+        Abstract method, needs to be define by the children class.
+        """
+        pass
+
+    def reinitialize(self):
         # Structure: {scenario_id : {cav_1 : {timestamp1 : {yaml: path,
         # lidar: path, cameras:list of path}}}}
         self.scenario_database = OrderedDict()
         self.len_record = []
 
         # loop over all scenarios
-        for (i, scenario_folder) in enumerate(scenario_folders):
+        for (i, scenario_folder) in enumerate(self.scenario_folders):
             self.scenario_database.update({i: OrderedDict()})
 
             # at least 1 cav should show up
-            cav_list = sorted([x for x in os.listdir(scenario_folder)
-                               if os.path.isdir(
-                    os.path.join(scenario_folder, x))])
+            # at least 1 cav should show up
+            if self.train:
+                cav_list = [x for x in os.listdir(scenario_folder)
+                            if os.path.isdir(
+                        os.path.join(scenario_folder, x))]
+                random.shuffle(cav_list)
+            else:
+                cav_list = sorted([x for x in os.listdir(scenario_folder)
+                                   if os.path.isdir(
+                        os.path.join(scenario_folder, x))])
             assert len(cav_list) > 0
 
             # roadside unit data's id is always negative, so here we want to
@@ -163,15 +182,6 @@ class BaseDataset(Dataset):
                         self.len_record.append(prev_last + len(timestamps))
                 else:
                     self.scenario_database[i][cav_id]['ego'] = False
-
-    def __len__(self):
-        return self.len_record[-1]
-
-    def __getitem__(self, idx):
-        """
-        Abstract method, needs to be define by the children class.
-        """
-        pass
 
     def retrieve_base_data(self, idx, cur_ego_pose_flag=True):
         """
