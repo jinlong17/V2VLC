@@ -17,7 +17,7 @@ wild_setting:
 yaml_parser: "load_point_pillar_params"
 train_params:
   batch_size: &batch_size 2
-  epoches: 60
+  epoches: &epoches 60
   eval_freq: 1
   save_freq: 1
   max_cav: &max_cav 5
@@ -115,7 +115,9 @@ optimizer:
     weight_decay: 1e-4
 
 lr_scheduler:
-  core_method: multistep #step, multistep and Exponential support
-  gamma: 0.1
-  step_size: [15, 50]
+    core_method: cosineannealwarm #step, multistep, Exponential and cosineannealwarm support
+    epoches: *epoches
+    warmup_lr: 2e-4
+    warmup_epoches: 10
+    lr_min: 2e-5
 
