@@ -1,3 +1,11 @@
+'''
+Descripttion: 
+version: 
+Author: Jinlong Li CSU PhD
+Date: 2022-10-31 16:54:56
+LastEditors: Jinlong Li CSU PhD
+LastEditTime: 2022-10-31 17:27:51
+'''
 from opencood.data_utils.datasets.late_fusion_dataset import LateFusionDataset
 from opencood.data_utils.datasets.early_fusion_dataset import EarlyFusionDataset
 from opencood.data_utils.datasets.intermediate_fusion_dataset import IntermediateFusionDataset
@@ -26,6 +34,23 @@ def build_dataset(dataset_cfg, visualize=False, train=True):
         params=dataset_cfg,
         visualize=visualize,
         train=train
+    )
+
+    return dataset
+
+def build_dataset_da(dataset_cfg, visualize=False, train=True, is_source=True):
+    dataset_name = dataset_cfg['fusion']['core_method']
+    error_message = f"{dataset_name} is not found. " \
+                    f"Please add your processor file's name in opencood/" \
+                    f"data_utils/datasets/init.py"
+    assert dataset_name in ['LateFusionDataset', 'EarlyFusionDataset',
+                            'IntermediateFusionDataset'], error_message
+
+    dataset = __all__[dataset_name](
+        params=dataset_cfg,
+        visualize=visualize,
+        train=train,
+        is_source=is_source
     )
 
     return dataset

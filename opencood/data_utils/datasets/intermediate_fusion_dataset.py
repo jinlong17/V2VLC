@@ -22,9 +22,9 @@ from opencood.utils.transformation_utils import x1_to_x2, dist_two_pose
 
 
 class IntermediateFusionDataset(basedataset.BaseDataset):
-    def __init__(self, params, visualize, train=True):
+    def __init__(self, params, visualize, train=True, is_source=True):
         super(IntermediateFusionDataset, self). \
-            __init__(params, visualize, train)
+            __init__(params, visualize, train, is_source)
         self.pre_processor = build_preprocessor(params['preprocess'],
                                                 train)
         self.post_processor = post_processor.build_postprocessor(
