@@ -1,14 +1,14 @@
 name: point_pillar_mcwin_transformer_nocompression_half_hetero_rte_split_att
 #root_dir: '/home/runshengxu/project/Cooperative_perception/opencood/tmp'
-root_dir: '/home/ucla_cav/data/train'
-validate_dir: '/home/ucla_cav/data/validate'
+root_dir: '/data/v2vreal/train'
+validate_dir: '/data/v2vreal/test'
 
 wild_setting:
   async: false
   async_mode: 'sim'
   async_overhead: 100
   seed: 20
-  loc_err: true
+  loc_err: false
   xyz_std: 0.2
   ryp_std: 0.2
   data_size: 1.06 # Mb!!
@@ -18,7 +18,7 @@ wild_setting:
 yaml_parser: "load_point_pillar_params"
 train_params:
   batch_size: &batch_size 2
-  epoches: 60
+  epoches: &epoches 60
   eval_freq: 1
   save_freq: 1
   max_cav: &max_cav 5
@@ -32,12 +32,12 @@ preprocess:
   # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
   core_method: 'SpVoxelPreprocessor'
   args:
-    voxel_size: &voxel_size [0.4, 0.4, 4]
+    voxel_size: &voxel_size [0.4, 0.4, 8]
     max_points_per_voxel: 32
     max_voxel_train: 32000
     max_voxel_test: 70000
   # lidar range for each individual cav.
-  cav_lidar_range: &cav_lidar [-140.8, -38.4, -3, 140.8, 38.4, 1]
+  cav_lidar_range: &cav_lidar [-140.8, -38.4, -5, 140.8, 38.4, 3]
 
 data_augment:
   - NAME: random_world_flip
@@ -151,7 +151,8 @@ optimizer:
     weight_decay: 1e-4
 
 lr_scheduler:
-  core_method: multistep #step, multistep and Exponential support
-  gamma: 0.1
-  step_size: [15, 50]
-
+    core_method: cosineannealwarm #step, multistep, Exponential and cosineannealwarm support
+    epoches: *epoches
+    warmup_lr: 2e-4
+    warmup_epoches: 10
+    lr_min: 2e-5
