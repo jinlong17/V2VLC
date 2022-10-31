@@ -65,9 +65,7 @@ class LateFusionDataset(basedataset.BaseDataset):
         # generate the bounding box(n, 7) under the cav's space
         object_bbx_center, object_bbx_mask, object_ids = \
             self.post_processor.generate_object_center([selected_cav_base],
-                                                       selected_cav_base[
-                                                           'params'][
-                                                           'lidar_pose'])
+                                                       np.identity(4))
         # data augmentation
         lidar_np, object_bbx_center, object_bbx_mask = \
             self.augment(lidar_np, object_bbx_center, object_bbx_mask)
@@ -130,15 +128,6 @@ class LateFusionDataset(basedataset.BaseDataset):
 
         # loop over all CAVs to process information
         for cav_id, selected_cav_base in base_data_dict.items():
-            distance = \
-                math.sqrt((selected_cav_base['params']['lidar_pose'][0] -
-                           ego_lidar_pose[0]) ** 2 + (
-                                  selected_cav_base['params'][
-                                      'lidar_pose'][1] - ego_lidar_pose[
-                                      1]) ** 2)
-            if distance > opencood.data_utils.datasets.COM_RANGE:
-                continue
-
             # find the transformation matrix from current cav to ego.
             # this is used to project prediction to the right space
             transformation_matrix = \
