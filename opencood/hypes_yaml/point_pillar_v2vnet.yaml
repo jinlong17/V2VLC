@@ -24,7 +24,7 @@ train_params:
   max_cav: &max_cav 2
 
 fusion:
-  core_method: 'FeatureFusionDataset' # LateFusionDataset, EarlyFusionDataset, IntermediateFusionDataset, FeatureFusionDataset supported
+  core_method: 'IntermediateFusionDataset' # LateFusionDataset, EarlyFusionDataset, IntermediateFusionDataset, FeatureFusionDataset supported
   args: []
 
 # preprocess-related
