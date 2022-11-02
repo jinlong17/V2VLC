@@ -2,6 +2,11 @@ import argparse
 import os
 import statistics
 
+import sys
+sys.path.append('/home/jinlong/4.3D_detection/Detection_CVPR/v2vreal')
+sys.path.append('/home/jinlong/4.3D_detection/Detection_CVPR/v2vreal/opencood')
+
+
 import torch
 import tqdm
 from torch.utils.data import DataLoader

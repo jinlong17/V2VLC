@@ -4,10 +4,11 @@ name: DA_v0_point_pillar_intermediate_fusion
 # root_dir_target: '/home/ucla_cav/data/train'
 # validate_dir: '/home/ucla_cav/data/validate'
 root_dir: '/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/train'
-# root_dir_target: '/home/jinlong/4.3D_detection/Detection_CVPR/data/train'
+root_dir_target: '/home/jinlong/4.3D_detection/Detection_CVPR/data/train'
 # root_dir: '/home/jinlong/4.3D_detection/v2vreal/Day20_test'
-root_dir_target: '/home/jinlong/4.3D_detection/Detection_CVPR/data/Day20_test'
-validate_dir: '/home/jinlong/4.3D_detection/Detection_CVPR/data/Day20_test'
+# root_dir_target: '/home/jinlong/4.3D_detection/Detection_CVPR/data/Day20_test'
+# validate_dir: '/home/jinlong/4.3D_detection/Detection_CVPR/data/Day20_test'
+validate_dir: '/home/jinlong/4.3D_detection/Detection_CVPR/data/test'
 
 
 yaml_parser: "load_point_pillar_params"
@@ -21,7 +22,7 @@ wild_setting:
   ryp_std: 0.2
 
 train_params:
-  batch_size: &batch_size 2
+  batch_size: &batch_size 8
   epoches: &epoches 60
   eval_freq: 1
   save_freq: 1
@@ -101,9 +102,8 @@ model:
     DA_instance_head: 88
     DA_feature_weight: 1
     DA_instance_weight: 1
-    grl_feature_weight: 1
-    grl_instance_weight: 1
-
+    grl_feature_weight: 0.1
+    grl_instance_weight: 0.1
 
 
 loss:
@@ -120,13 +120,13 @@ optimizer:
     weight_decay: 1e-4
 
 lr_scheduler:
-  # core_method: cosineannealwarm #step, multistep and Exponential support
-  # gamma: 0.1
-  # step_size: [15, 40]
-  core_method: cosineannealwarm #step, multistep, Exponential and cosineannealwarm support
-  epoches: *epoches
-  warmup_lr: 2e-4
-  warmup_epoches: 10
-  lr_min: 2e-5
+  core_method: multistep #step, multistep and Exponential support
+  gamma: 0.1
+  step_size: [10, 20, 40]
+  # core_method: cosineannealwarm #step, multistep, Exponential and cosineannealwarm support
+  # epoches: *epoches
+  # warmup_lr: 2e-3
+  # warmup_epoches: 10
+  # lr_min: 2e-5
 
   

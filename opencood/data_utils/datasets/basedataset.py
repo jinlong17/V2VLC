@@ -149,6 +149,7 @@ class BaseDataset(Dataset):
             # make sure they will be in the end of the list as they shouldn't
             # be ego vehicle.
             if int(cav_list[0]) < 0:
+            # if float(cav_list[0]) < 0:
                 cav_list = cav_list[1:] + [cav_list[0]]
 
             # loop over all CAV data

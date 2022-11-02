@@ -6,6 +6,10 @@ import torch
 import open3d as o3d
 from torch.utils.data import DataLoader
 
+import sys
+sys.path.append('/home/jinlong/4.3D_detection/Detection_CVPR/v2vreal')
+sys.path.append('/home/jinlong/4.3D_detection/Detection_CVPR/v2vreal/opencood')
+
 import opencood.hypes_yaml.yaml_utils as yaml_utils
 from opencood.tools import train_utils, infrence_utils
 from opencood.data_utils.datasets import build_dataset

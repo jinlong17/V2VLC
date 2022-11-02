@@ -1,7 +1,7 @@
 name: point_pillar_intermediate_fusion
 #root_dir: '/home/runshengxu/project/Cooperative_perception/opencood/tmp'
-root_dir: '/home/ucla_cav/data/train'
-validate_dir: '/home/ucla_cav/data/validate'
+root_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/train"
+validate_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/validate"
 
 
 yaml_parser: "load_point_pillar_params"

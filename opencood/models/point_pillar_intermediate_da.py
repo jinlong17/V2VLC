@@ -4,7 +4,7 @@ version:
 Author: Jinlong Li CSU PhD
 Date: 2022-10-27 14:29:39
 LastEditors: Jinlong Li CSU PhD
-LastEditTime: 2022-10-31 17:30:08
+LastEditTime: 2022-11-02 00:16:56
 '''
 import torch
 import torch.nn as nn
@@ -158,15 +158,18 @@ class DomainAdaptationModule(nn.Module):
         da_source_fea_label = da_source_fea_label.reshape(da_source_fea_label.shape[0], -1)##[B, C*H*W]
         da_target_fea_label = da_target_fea_label.reshape(da_target_fea_label.shape[0], -1) #[B, C*H*W]
 
-        da_fea = torch.cat([da_source_fea_level, da_target_fea_label], dim=0) #[B*2, C*H*W]
+        da_fea = torch.cat([da_source_fea_level, da_target_fea_level], dim=0) #[B*2, C*H*W]
         da_fea_label = torch.cat([da_source_fea_label, da_target_fea_label], dim=0) #[B*2, C*H*W]
         # da feature loss
         da_fea_loss = F.binary_cross_entropy_with_logits(da_fea, da_fea_label) 
 
         ###############################Loss of DA instance component#############################
 
-        cls_preds_source = source_psm.permute(0, 2, 3, 1).contiguous() ### refer to PointPillarLoss------->[B, 48, 176, 2]
-        cls_preds_target = target_psm.permute(0, 2, 3, 1).contiguous()###refer to  PointPillarLoss------->[B, 48, 176, 2]
+        source_psm_grl = self.grl_instance(source_psm)
+        target_psm_grl = self.grl_instance(target_psm)
+
+        cls_preds_source = source_psm_grl.permute(0, 2, 3, 1).contiguous() ### refer to PointPillarLoss------->[B, 48, 176, 2]
+        cls_preds_target = target_psm_grl.permute(0, 2, 3, 1).contiguous()###refer to  PointPillarLoss------->[B, 48, 176, 2]
         # print("cls_preds_source: ", cls_preds_source.size())
         cls_preds_source = self.avgpool(cls_preds_source)
         cls_preds_target = self.avgpool(cls_preds_target)##[B, 48, 88, 1]

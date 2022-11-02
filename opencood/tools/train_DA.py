@@ -27,6 +27,8 @@ def train_parser():
                         help='data generation yaml file needed ')
     parser.add_argument('--model_dir', default='',
                         help='Continued training path')
+    parser.add_argument('--model', default='',
+                        help='for fine-tuned training path')
     parser.add_argument("--half", action='store_true', help="whether train with half precision")
     opt = parser.parse_args()
     return opt
@@ -49,14 +51,14 @@ def main():
         print("target_opencood_train_dataset is loaded")
     source_train_loader = DataLoader(source_opencood_train_dataset,
                                     batch_size=hypes['train_params']['batch_size'], 
-                                    num_workers=8, 
+                                    num_workers=4, 
                                     collate_fn=source_opencood_train_dataset.collate_batch_train, 
                                     shuffle=True, 
                                     pin_memory=False, 
                                     drop_last=True)
     target_train_loader = DataLoader(target_opencood_train_dataset,
                                     batch_size=hypes['train_params']['batch_size'],
-                                    num_workers=8,
+                                    num_workers=4,
                                     collate_fn=source_opencood_train_dataset.collate_batch_train, 
                                     shuffle=True, 
                                     pin_memory=False, 
@@ -74,12 +76,11 @@ def main():
         print("opencood_validate_dataset is loaded")
     val_loader = DataLoader(opencood_validate_dataset,
                             batch_size=hypes['train_params']['batch_size'],
-                            num_workers=8,
+                            num_workers=4,
                             collate_fn=source_opencood_train_dataset.collate_batch_train,
                             shuffle=False,
                             pin_memory=False,
                             drop_last=True)
-
 
     print('Creating Model')
     model = train_utils.create_model(hypes)
@@ -103,12 +104,25 @@ def main():
     if opt.model_dir:
         saved_path = opt.model_dir
         init_epoch, model = train_utils.load_saved_model(saved_path, model)
+        print('Loaded model from {}'.format(saved_path))
 
     else:
-        init_epoch = 0
-        # if we train the model from scratch, we need to create a folder
-        # to save the model,
-        saved_path = train_utils.setup_train(hypes)
+        if opt.model:
+            saved_path = train_utils.setup_train(hypes)
+            model_path = opt.model
+            init_epoch = 0
+            pretrained_state = torch.load(os.path.join(model_path,'latest.pth'))
+            model_dict = model.state_dict()
+            pretrained_state = {k: v for k, v in pretrained_state.items() if (k in model_dict and v.shape == model_dict[k].shape)}
+            model_dict.update(pretrained_state)
+            model.load_state_dict(model_dict)
+            print('Loaded pretrained model from {}'.format(model_path))
+
+        else:
+            init_epoch = 0
+            # if we train the model from scratch, we need to create a folder
+            # to save the model,
+            saved_path = train_utils.setup_train(hypes)
 
     # record training
     writer = SummaryWriter(saved_path)
@@ -160,7 +174,7 @@ def main():
 
             Total_loss = losses + final_loss
 
-            criterion.logging(epoch, iteration, len(source_train_loader), writer, da_loss, pbar=pbar2)
+            criterion.logging_da(epoch, iteration, len(source_train_loader), writer, da_loss, pbar=pbar2)
 
             pbar2.update(1)   
             # back-propagation
