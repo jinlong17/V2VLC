@@ -450,8 +450,14 @@ def project_world_objects(object_dict,
         rotation = object_content['angle']
         center = object_content['center']
         extent = object_content['extent']
-        ass_id = object_content['ass_id']
-        obj_type = object_content['obj_type']
+        if 'ass_id' not in object_content:
+            ass_id = object_id
+        else:
+            ass_id = object_content['ass_id']
+        if 'obj_type' not in object_content:
+            obj_type = 'Car'
+        else:
+            obj_type = object_content['obj_type']
 
         # todo: pedestrain is not consdered yet
         # todo: only single class now

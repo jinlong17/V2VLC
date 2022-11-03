@@ -41,10 +41,11 @@ class BaseDataset(Dataset):
 
     """
 
-    def __init__(self, params, visualize, train=True):
+    def __init__(self, params, visualize, train=True, isSim=False):
         self.params = params
         self.visualize = visualize
         self.train = train
+        self.isSim = isSim
 
         self.pre_processor = None
         self.post_processor = None
