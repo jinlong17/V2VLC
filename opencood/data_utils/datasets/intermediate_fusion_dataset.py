@@ -22,9 +22,9 @@ from opencood.utils.transformation_utils import x1_to_x2, dist_two_pose
 
 
 class IntermediateFusionDataset(basedataset.BaseDataset):
-    def __init__(self, params, visualize, train=True):
+    def __init__(self, params, visualize, train=True, isSim=False):
         super(IntermediateFusionDataset, self). \
-            __init__(params, visualize, train)
+            __init__(params, visualize, train, isSim)
         self.pre_processor = build_preprocessor(params['preprocess'],
                                                 train)
         self.post_processor = post_processor.build_postprocessor(
@@ -186,7 +186,7 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
         # retrieve objects under ego coordinates
         object_bbx_center, object_bbx_mask, object_ids = \
             self.post_processor.generate_object_center([selected_cav_base],
-                                                       transformation_matrix)
+                                                       transformation_matrix if self.isSim else ego_pose)
 
         # filter lidar
         lidar_np = selected_cav_base['lidar_np']

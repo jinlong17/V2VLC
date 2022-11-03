@@ -22,8 +22,8 @@ from opencood.utils.transformation_utils import x1_to_x2
 
 
 class LateFusionDataset(basedataset.BaseDataset):
-    def __init__(self, params, visualize, train=True):
-        super(LateFusionDataset, self).__init__(params, visualize, train)
+    def __init__(self, params, visualize, train=True, isSim=False):
+        super(LateFusionDataset, self).__init__(params, visualize, train, isSim)
         self.pre_processor = build_preprocessor(params['preprocess'],
                                                 train)
         self.post_processor = build_postprocessor(params['postprocess'], train)

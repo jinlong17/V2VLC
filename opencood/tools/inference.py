@@ -30,6 +30,9 @@ def test_parser():
     parser.add_argument('--save_npy', action='store_true',
                         help='whether to save prediction and gt result'
                              'in npy file')
+    parser.add_argument('--isSim', action='store_true',
+                        help='whether to save prediction and gt result'
+                             'in npy file')
     opt = parser.parse_args()
     return opt
 
