@@ -22,23 +22,7 @@ GT_RANGE = [-140, -40, -5, 140, 40, 3]
 COM_RANGE = 70
 
 
-def build_dataset(dataset_cfg, visualize=False, train=True):
-    dataset_name = dataset_cfg['fusion']['core_method']
-    error_message = f"{dataset_name} is not found. " \
-                    f"Please add your processor file's name in opencood/" \
-                    f"data_utils/datasets/init.py"
-    assert dataset_name in ['LateFusionDataset', 'EarlyFusionDataset',
-                            'IntermediateFusionDataset'], error_message
-
-    dataset = __all__[dataset_name](
-        params=dataset_cfg,
-        visualize=visualize,
-        train=train
-    )
-
-    return dataset
-
-def build_dataset_da(dataset_cfg, visualize=False, train=True, is_source=True):
+def build_dataset(dataset_cfg, visualize=False, train=True, isSim=False):
     dataset_name = dataset_cfg['fusion']['core_method']
     error_message = f"{dataset_name} is not found. " \
                     f"Please add your processor file's name in opencood/" \
@@ -50,7 +34,24 @@ def build_dataset_da(dataset_cfg, visualize=False, train=True, is_source=True):
         params=dataset_cfg,
         visualize=visualize,
         train=train,
-        is_source=is_source
+        isSim=isSim
+    )
+
+    return dataset
+
+def build_dataset_da(dataset_cfg, visualize=False, train=True, isSim=True):
+    dataset_name = dataset_cfg['fusion']['core_method']
+    error_message = f"{dataset_name} is not found. " \
+                    f"Please add your processor file's name in opencood/" \
+                    f"data_utils/datasets/init.py"
+    assert dataset_name in ['LateFusionDataset', 'EarlyFusionDataset',
+                            'IntermediateFusionDataset'], error_message
+
+    dataset = __all__[dataset_name](
+        params=dataset_cfg,
+        visualize=visualize,
+        train=train,
+        isSim=isSim
     )
 
     return dataset

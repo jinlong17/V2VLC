@@ -41,11 +41,11 @@ class BaseDataset(Dataset):
 
     """
 
-    def __init__(self, params, visualize, train=True, is_source=True):
+    def __init__(self, params, visualize, train=True, isSim=False):
         self.params = params
         self.visualize = visualize
         self.train = train
-        self.is_source = is_source
+        self.isSim = isSim
 
         self.pre_processor = None
         self.post_processor = None
@@ -91,7 +91,7 @@ class BaseDataset(Dataset):
         #####TODO:jinlong add for source and target dataset
         # pdb.set_trace()
         if self.train:
-            if self.is_source:
+            if self.isSim:
                 root_dir = params['root_dir']
 
             else:

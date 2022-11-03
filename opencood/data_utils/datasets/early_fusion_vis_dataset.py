@@ -34,8 +34,8 @@ def draw_registration_result(source, target, transformation):
                                       up=[-0.3402, -0.9189, -0.1996])
 
 class EarlyFusionVisDataset(basedataset.BaseDataset):
-    def __init__(self, params, visualize, train=True):
-        super(EarlyFusionVisDataset, self).__init__(params, visualize, train)
+    def __init__(self, params, visualize, train=True, isSim=False):
+        super(EarlyFusionVisDataset, self).__init__(params, visualize, train, isSim)
         self.pre_processor = build_preprocessor(params['preprocess'],
                                                 train)
         self.post_processor = build_postprocessor(params['postprocess'], train)
@@ -43,8 +43,8 @@ class EarlyFusionVisDataset(basedataset.BaseDataset):
     def __getitem__(self, idx):
         base_data_dict = self.retrieve_base_data(idx)
 
-        folder_name = base_data_dict['0']['folder_name']
-        file_index = base_data_dict['0']['index']
+        folder_name = list(base_data_dict.values())[0]['folder_name']
+        file_index = list(base_data_dict.values())[0]['index']
 
         processed_data_dict = OrderedDict()
         processed_data_dict['ego'] = {}
@@ -149,13 +149,14 @@ class EarlyFusionVisDataset(basedataset.BaseDataset):
         selected_cav_processed = {}
 
         # calculate the transformation matrix
+
         transformation_matrix = \
             selected_cav_base['params']['transformation_matrix']
 
         # retrieve objects under ego coordinates
         object_bbx_center, object_bbx_mask, object_ids = \
             self.post_processor.generate_object_center([selected_cav_base],
-                                                       transformation_matrix)
+                                                       transformation_matrix if not self.isSim else ego_pose)
 
         # filter lidar
         lidar_np = selected_cav_base['lidar_np']

@@ -22,9 +22,9 @@ from opencood.utils.transformation_utils import x1_to_x2, dist_two_pose
 
 
 class IntermediateFusionDataset(basedataset.BaseDataset):
-    def __init__(self, params, visualize, train=True, is_source=True):
+    def __init__(self, params, visualize, train=True, isSim=False):
         super(IntermediateFusionDataset, self). \
-            __init__(params, visualize, train, is_source)
+            __init__(params, visualize, train, isSim)
         self.pre_processor = build_preprocessor(params['preprocess'],
                                                 train)
         self.post_processor = post_processor.build_postprocessor(
@@ -50,6 +50,10 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
             0], "The first element in the OrderedDict must be ego"
         assert ego_id != -1
         assert len(ego_lidar_pose) > 0
+
+        pairwise_t_matrix = \
+            self.get_pairwise_transformation(base_data_dict,
+                                             self.max_cav)
 
         processed_features = []
         object_stack = []
@@ -148,7 +152,8 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
              'velocity': velocity,
              'time_delay': time_delay,
              'infra': infra,
-             'spatial_correction_matrix': spatial_correction_matrix})
+             'spatial_correction_matrix': spatial_correction_matrix,
+             'pairwise_t_matrix': pairwise_t_matrix})
 
         if self.visualize:
             processed_data_dict['ego'].update({'origin_lidar':
@@ -181,7 +186,7 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
         # retrieve objects under ego coordinates
         object_bbx_center, object_bbx_mask, object_ids = \
             self.post_processor.generate_object_center([selected_cav_base],
-                                                       transformation_matrix)
+                                                       transformation_matrix if self.isSim else ego_pose)
 
         # filter lidar
         lidar_np = selected_cav_base['lidar_np']
@@ -266,6 +271,9 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
         # and current timestamp
         spatial_correction_matrix_list = []
 
+        # pairwise transformation matrix
+        pairwise_t_matrix_list = []
+
         if self.visualize:
             origin_lidar = []
 
@@ -284,6 +292,7 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
             infra.append(ego_dict['infra'])
             spatial_correction_matrix_list.append(
                 ego_dict['spatial_correction_matrix'])
+            pairwise_t_matrix_list.append(ego_dict['pairwise_t_matrix'])
 
             if self.visualize:
                 origin_lidar.append(ego_dict['origin_lidar'])
@@ -302,6 +311,7 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
             self.post_processor.collate_batch(label_dict_list)
 
         # (B, max_cav)
+        pairwise_t_matrix = torch.from_numpy(np.array(pairwise_t_matrix_list))
         velocity = torch.from_numpy(np.array(velocity))
         time_delay = torch.from_numpy(np.array(time_delay))
         infra = torch.from_numpy(np.array(infra))
@@ -320,7 +330,8 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
                                    'label_dict': label_torch_dict,
                                    'object_ids': object_ids[0],
                                    'prior_encoding': prior_encoding,
-                                   'spatial_correction_matrix': spatial_correction_matrix_list})
+                                   'spatial_correction_matrix': spatial_correction_matrix_list,
+                                   'pairwise_t_matrix': pairwise_t_matrix})
 
         if self.visualize:
             origin_lidar = \
@@ -372,6 +383,29 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
         gt_box_tensor = self.post_processor.generate_gt_bbx(data_dict)
 
         return pred_box_tensor, pred_score, gt_box_tensor
+
+    def get_pairwise_transformation(self, base_data_dict, max_cav):
+        """
+        Get pair-wise transformation matrix accross different agents.
+
+        Parameters
+        ----------
+        base_data_dict : dict
+            Key : cav id, item: transformation matrix to ego, lidar points.
+
+        max_cav : int
+            The maximum number of cav, default 5
+
+        Return
+        ------
+        pairwise_t_matrix : np.array
+            The pairwise transformation matrix across each cav.
+            shape: (L, L, 4, 4)
+        """
+        pairwise_t_matrix = np.zeros((max_cav, max_cav, 4, 4))
+        pairwise_t_matrix[:, :] = np.identity(4)
+
+        return pairwise_t_matrix
 
 
 if __name__ == '__main__':

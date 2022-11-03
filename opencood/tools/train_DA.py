@@ -43,8 +43,8 @@ def main():
     # DA_Component: dataloader for source and target domain
     #########################################################################################
 
-    source_opencood_train_dataset = build_dataset_da(hypes, visualize=False, train=True, is_source=True)######coding 1
-    target_opencood_train_dataset = build_dataset_da(hypes, visualize=False, train=True, is_source=False)######coding 1
+    source_opencood_train_dataset = build_dataset_da(hypes, visualize=False, train=True, isSim=True)######coding 1
+    target_opencood_train_dataset = build_dataset_da(hypes, visualize=False, train=True, isSim=False)######coding 1
     if source_opencood_train_dataset is not None:
         print("source_opencood_train_dataset is loaded")
     if target_opencood_train_dataset is not None:

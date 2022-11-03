@@ -91,9 +91,13 @@ class PointPillarLoss(nn.Module):
 
         box_cls_labels = target_dict['pos_equal_one']
         box_cls_labels = box_cls_labels.view(psm.shape[0], -1).contiguous()
+        box_cls_labels_neg = target_dict['neg_equal_one']
+        box_cls_labels_neg = \
+            box_cls_labels_neg.view(psm.shape[0], -1).contiguous()
 
         positives = box_cls_labels > 0
-        negatives = box_cls_labels == 0
+        negatives = box_cls_labels_neg > 0
+
         negative_cls_weights = negatives * 1.0
         cls_weights = (negative_cls_weights + 1.0 * positives).float()
         reg_weights = positives.float()
