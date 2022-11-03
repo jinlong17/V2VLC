@@ -52,7 +52,7 @@ def main():
     hypes = yaml_utils.load_yaml(None, opt)
 
     print('Dataset Building')
-    opencood_dataset = build_dataset(hypes, visualize=True, train=False)
+    opencood_dataset = build_dataset(hypes, visualize=True, train=False, isSim=opt.isSim)
     data_loader = DataLoader(opencood_dataset,
                              batch_size=1,
                              num_workers=1,
