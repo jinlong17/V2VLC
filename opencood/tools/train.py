@@ -24,6 +24,9 @@ def train_parser():
     parser.add_argument('--model_dir', default='',
                         help='Continued training path')
     parser.add_argument("--half", action='store_true', help="whether train with half precision")
+    parser.add_argument('--isSim', action='store_true',
+                        help='whether to save prediction and gt result'
+                             'in npy file')
     opt = parser.parse_args()
     return opt
 
@@ -36,7 +39,8 @@ def main():
     opencood_train_dataset = build_dataset(hypes, visualize=False, train=True)
     opencood_validate_dataset = build_dataset(hypes,
                                               visualize=False,
-                                              train=False)
+                                              train=False,
+                                              isSim=opt.isSim)
 
     train_loader = DataLoader(opencood_train_dataset,
                               batch_size=hypes['train_params']['batch_size'],
