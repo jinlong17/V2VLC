@@ -51,14 +51,14 @@ def main():
         print("target_opencood_train_dataset is loaded")
     source_train_loader = DataLoader(source_opencood_train_dataset,
                                     batch_size=hypes['train_params']['batch_size'], 
-                                    num_workers=4, 
+                                    num_workers=8, 
                                     collate_fn=source_opencood_train_dataset.collate_batch_train, 
                                     shuffle=True, 
                                     pin_memory=False, 
                                     drop_last=True)
     target_train_loader = DataLoader(target_opencood_train_dataset,
                                     batch_size=hypes['train_params']['batch_size'],
-                                    num_workers=4,
+                                    num_workers=8,
                                     collate_fn=source_opencood_train_dataset.collate_batch_train, 
                                     shuffle=True, 
                                     pin_memory=False, 
@@ -76,7 +76,7 @@ def main():
         print("opencood_validate_dataset is loaded")
     val_loader = DataLoader(opencood_validate_dataset,
                             batch_size=hypes['train_params']['batch_size'],
-                            num_workers=4,
+                            num_workers=8,
                             collate_fn=source_opencood_train_dataset.collate_batch_train,
                             shuffle=False,
                             pin_memory=False,
@@ -144,9 +144,16 @@ def main():
         for param_group in optimizer.param_groups:
             print('learning rate %f' % param_group["lr"])
         pbar2 = tqdm.tqdm(total=len(source_train_loader), leave=True)
+        target_train_loader_iter = iter(target_train_loader)
         # for iteration, (source_batch_data, target_batch_data) in enumerate(zip(source_train_loader, target_train_loader)):
         for iteration, source_batch_data in enumerate(source_train_loader):
-            target_batch_data = next(iter(target_train_loader))
+
+            try:
+                target_batch_data = next(target_train_loader_iter)
+            except StopIteration:
+                target_train_loader_iter = iter(target_train_loader)
+                target_batch_data = next(target_train_loader_iter)
+
             model.train()
             model.zero_grad()
             optimizer.zero_grad()

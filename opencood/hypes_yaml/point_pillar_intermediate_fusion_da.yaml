@@ -97,7 +97,7 @@ model:
       compression: 0
 
     anchor_num: *achor_num
-    ####DA  component
+    ####DA  component########
     DA_feature_head: 384
     DA_instance_head: 88
     DA_feature_weight: 1
@@ -120,13 +120,13 @@ optimizer:
     weight_decay: 1e-4
 
 lr_scheduler:
-  core_method: multistep #step, multistep and Exponential support
-  gamma: 0.1
-  step_size: [10, 20, 40]
-  # core_method: cosineannealwarm #step, multistep, Exponential and cosineannealwarm support
-  # epoches: *epoches
-  # warmup_lr: 2e-3
-  # warmup_epoches: 10
-  # lr_min: 2e-5
+  # core_method: multistep #step, multistep and Exponential support
+  # gamma: 0.1
+  # step_size: [10, 20, 40]
+  core_method: cosineannealwarm #step, multistep, Exponential and cosineannealwarm support
+  epoches: *epoches
+  warmup_lr: 2e-3
+  warmup_epoches: 10
+  lr_min: 2e-5
 
   
