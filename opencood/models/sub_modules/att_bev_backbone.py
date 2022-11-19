@@ -6,6 +6,12 @@ from opencood.models.sub_modules.self_attn import AttFusion
 from opencood.models.sub_modules.auto_encoder import AutoEncoder
 
 
+######
+from opencood.models.sub_modules.KPN import KPN, KPN_cov, LossFunc, eval_noise_Loss, LossBasic, KPN_MAX, KPN_with_core, LossBasic
+from opencood.models.sub_modules.self_attn import V2V_AttFusion, regroup
+from opencood.models.sub_modules.noise import data_dropout, data_dropout_uniform,transmission_with_noise
+
+
 class AttBEVBackbone(nn.Module):
     def __init__(self, model_cfg, input_channels):
         super().__init__()
@@ -47,7 +53,9 @@ class AttBEVBackbone(nn.Module):
 
         if self.compress:
             self.compression_modules = nn.ModuleList()
-
+        ###################
+        self.KPN_loss=[]
+        #####################
         for idx in range(num_levels):
             cur_layers = [
                 nn.ZeroPad2d(1),
@@ -111,6 +119,28 @@ class AttBEVBackbone(nn.Module):
 
         self.num_bev_features = c_in
 
+
+
+    '''
+    add the noise for feature map
+    '''
+    def operation_noise(self, x, record_len):
+
+        split_x = regroup(x, record_len)
+        out = []
+        p = np.random.randint(0, 100)/100
+        # p=0.5
+        key_max=30 #22.5
+        for xx in split_x:
+            if xx.size()[0] > 1: # generating training noise without ego feature map
+                xx = data_dropout_uniform(xx, p=p, key_max=key_max)
+            out.append(xx)
+        
+        x = torch.cat(out, dim=0)
+
+        return x
+
+
     def forward(self, data_dict):
         spatial_features = data_dict['spatial_features']
         record_len = data_dict['record_len']
@@ -118,6 +148,11 @@ class AttBEVBackbone(nn.Module):
         ups = []
         ret_dict = {}
         x = spatial_features
+
+        #########################
+        KPN_losses=[]#### store the loss
+        record_len = data_dict['record_len']
+        #########################
 
         for i in range(len(self.blocks)):
             x = self.blocks[i](x)
@@ -141,5 +176,17 @@ class AttBEVBackbone(nn.Module):
         if len(self.deblocks) > len(self.blocks):
             x = self.deblocks[-1](x)
 
-        data_dict['spatial_features_2d'] = x
+        ####################
+        xx = self.operation_noise( x.clone(), record_len) 
+        KPN_loss= eval_noise_Loss(xx, x)
+        KPN_losses.append(KPN_loss.item()) 
+        self.KPN_loss.append(sum(KPN_losses)) # record KPN loss
+
+        data_dict['spatial_features_2d'] = xx
+        data_dict['L1_diff_loss'] = self.KPN_loss[-1]
+        torch.cuda.empty_cache()
+        ####################
+        # data_dict['spatial_features_2d'] = x
+
+
         return data_dict

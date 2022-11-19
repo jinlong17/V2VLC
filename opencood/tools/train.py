@@ -3,8 +3,8 @@ import os
 import statistics
 
 import sys
-sys.path.append('/home/jinlong/4.3D_detection/Detection_CVPR/v2vreal')
-sys.path.append('/home/jinlong/4.3D_detection/Detection_CVPR/v2vreal/opencood')
+sys.path.append('/home/jinlong/4.3D_detection/Noise_V2V/v2vreal')
+sys.path.append('/home/jinlong/4.3D_detection/Noise_V2V/v2vreal/opencood')
 
 
 import torch
@@ -23,6 +23,8 @@ def train_parser():
                         help='data generation yaml file needed ')
     parser.add_argument('--model_dir', default='',
                         help='Continued training path')
+    parser.add_argument('--model', default='',
+                        help='for fine-tuned training path')
     parser.add_argument("--half", action='store_true', help="whether train with half precision")
     parser.add_argument('--isSim', action='store_true',
                         help='whether to save prediction and gt result'
@@ -36,11 +38,20 @@ def main():
     hypes = yaml_utils.load_yaml(opt.hypes_yaml, opt)
 
     print('Dataset Building')
-    opencood_train_dataset = build_dataset(hypes, visualize=False, train=True)
+
+
+
+
+
+
+
+    opencood_train_dataset = build_dataset(hypes, visualize=False, train=True,isSim=True)
+
+
     opencood_validate_dataset = build_dataset(hypes,
                                               visualize=False,
                                               train=False,
-                                              isSim=opt.isSim)
+                                              isSim=True)
 
     train_loader = DataLoader(opencood_train_dataset,
                               batch_size=hypes['train_params']['batch_size'],
@@ -78,12 +89,25 @@ def main():
     if opt.model_dir:
         saved_path = opt.model_dir
         init_epoch, model = train_utils.load_saved_model(saved_path, model)
+        print('Loaded model from {}'.format(saved_path))
 
     else:
-        init_epoch = 0
-        # if we train the model from scratch, we need to create a folder
-        # to save the model,
-        saved_path = train_utils.setup_train(hypes)
+        if opt.model:
+            saved_path = train_utils.setup_train(hypes)
+            model_path = opt.model
+            init_epoch = 0
+            pretrained_state = torch.load(os.path.join(model_path,'latest.pth'))
+            model_dict = model.state_dict()
+            pretrained_state = {k: v for k, v in pretrained_state.items() if (k in model_dict and v.shape == model_dict[k].shape)}
+            model_dict.update(pretrained_state)
+            model.load_state_dict(model_dict)
+            print('Loaded pretrained model from {}'.format(model_path))
+
+        else:
+            init_epoch = 0
+            # if we train the model from scratch, we need to create a folder
+            # to save the model,
+            saved_path = train_utils.setup_train(hypes)
 
     # record training
     writer = SummaryWriter(saved_path)
@@ -124,7 +148,8 @@ def main():
                     ouput_dict = model(batch_data['ego'])
                     final_loss = criterion(ouput_dict, batch_data['ego']['label_dict'])
 
-            criterion.logging(epoch, i, len(train_loader), writer, pbar=pbar2)
+            # criterion.logging(epoch, i, len(train_loader), writer, pbar=pbar2)
+            criterion.logging_kpn(epoch, i, len(train_loader), writer, ouput_dict, pbar=pbar2)
             pbar2.update(1)
             # back-propagation
             if not opt.half:

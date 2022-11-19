@@ -3,7 +3,7 @@
 """
 import math
 import sys
-# sys.path.append('/home/jinlong/4.3D_detection/Detection_CVPR/v2vreal/opencood/utils')
+
 
 import numpy as np
 import torch

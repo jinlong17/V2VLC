@@ -84,20 +84,20 @@ class BaseDataset(Dataset):
             self.transmission_speed = 27 # Mbps
             self.backbone_delay = 0 # ms
 
-        # if self.train:
-        #     root_dir = params['root_dir']
-        # else:
-        #     root_dir = params['validate_dir']
-        #####TODO:jinlong add for source and target dataset
-        # pdb.set_trace()
         if self.train:
-            if self.isSim:
-                root_dir = params['root_dir']
-
-            else:
-                root_dir = params['root_dir_target']
+            root_dir = params['root_dir']
         else:
             root_dir = params['validate_dir']
+        #####TODO:jinlong add for source and target dataset
+        # pdb.set_trace()
+        # if self.train:
+        #     if self.isSim:
+        #         root_dir = params['root_dir']
+
+        #     else:
+        #         root_dir = params['root_dir_target']
+        # else:
+        #     root_dir = params['validate_dir']
 
 
         print("loading the dataset: ", root_dir)

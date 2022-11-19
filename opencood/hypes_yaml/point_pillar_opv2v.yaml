@@ -1,7 +1,7 @@
-name: point_pillar_opv2v
+name: 1.noise_point_pillar_opv2v
 #root_dir: '/home/runshengxu/project/Cooperative_perception/opencood/tmp'
-root_dir: '/data/v2vreal/train'
-validate_dir: '/data/v2vreal/test'
+root_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/train"
+validate_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/validate"
 
 wild_setting:
   async: false

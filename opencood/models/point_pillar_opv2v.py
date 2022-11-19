@@ -10,6 +10,11 @@ from opencood.models.sub_modules.naive_compress import NaiveCompressor
 from opencood.models.sub_modules.self_attn import AttFusion
 
 
+######
+from opencood.models.sub_modules.KPN import KPN, KPN_cov, LossFunc, eval_noise_Loss, LossBasic, KPN_MAX, KPN_with_core, LossBasic
+from opencood.models.sub_modules.self_attn import V2V_AttFusion, regroup
+from opencood.models.sub_modules.noise import data_dropout, data_dropout_uniform,transmission_with_noise
+
 class PointPillarOPV2V(nn.Module):
     def __init__(self, args):
         super(PointPillarOPV2V, self).__init__()
@@ -34,6 +39,8 @@ class PointPillarOPV2V(nn.Module):
             self.naive_compressor = NaiveCompressor(256, args['compression'])
 
         self.fusion_net = AttFusion(256)
+        ###########################
+        # self.fusion_net = V2V_AttFusion(256)
 
         self.cls_head = nn.Conv2d(128 * 2, args['anchor_number'],
                                   kernel_size=1)
@@ -102,7 +109,9 @@ class PointPillarOPV2V(nn.Module):
         psm = self.cls_head(fused_feature)
         rm = self.reg_head(fused_feature)
 
+        # output_dict = {'psm': psm,
+        #                'rm': rm}
         output_dict = {'psm': psm,
-                       'rm': rm}
-
+                       'rm': rm,
+                       'L1_diff_loss': batch_dict['L1_diff_loss']}
         return output_dict

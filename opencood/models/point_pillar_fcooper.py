@@ -102,7 +102,9 @@ class PointPillarFCooper(nn.Module):
         psm = self.cls_head(fused_feature)
         rm = self.reg_head(fused_feature)
 
+        # output_dict = {'psm': psm,
+        #                'rm': rm}
         output_dict = {'psm': psm,
-                       'rm': rm}
-
+                       'rm': rm,
+                       'L1_diff_loss': batch_dict['L1_diff_loss']}
         return output_dict

@@ -1,7 +1,7 @@
-name: corpbevtlidar
+name: 1.noise_corpbevtlidar
 #root_dir: '/home/runshengxu/project/Cooperative_perception/opencood/tmp'
-root_dir: '/data/v2vreal/train'
-validate_dir: '/data/v2vreal/test'
+root_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/train"
+validate_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/validate"
 
 wild_setting:
   async: false
@@ -17,7 +17,7 @@ wild_setting:
 yaml_parser: "load_point_pillar_params"
 train_params:
   batch_size: &batch_size 4
-  epoches: &epoches 60
+  epoches: &epoches 40
   eval_freq: 2
   save_freq: 1
   max_cav: &max_cav 2
@@ -120,7 +120,7 @@ loss:
 
 optimizer:
   core_method: Adam
-  lr: 0.001
+  lr: 0.0001
   args:
     eps: 1e-10
     weight_decay: 1e-4

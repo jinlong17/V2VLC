@@ -1,3 +1,11 @@
+'''
+Descripttion: 
+version: 
+Author: Jinlong Li CSU PhD
+Date: 2022-11-03 23:53:26
+LastEditors: Jinlong Li CSU PhD
+LastEditTime: 2022-11-18 01:56:45
+'''
 import torch
 import torch.nn as nn
 
@@ -46,7 +54,9 @@ class PointPillarIntermediate(nn.Module):
         psm = self.cls_head(spatial_features_2d)
         rm = self.reg_head(spatial_features_2d)
 
+        # output_dict = {'psm': psm,
+        #                'rm': rm}
         output_dict = {'psm': psm,
-                       'rm': rm}
-
+                       'rm': rm,
+                       'L1_diff_loss': batch_dict['L1_diff_loss']}
         return output_dict
