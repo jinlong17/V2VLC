@@ -17,7 +17,6 @@ from opencood.utils.box_overlaps import bbox_overlaps
 from opencood.visualization import vis_utils
 
 
-
 class VoxelPostprocessor(BasePostprocessor):
     def __init__(self, anchor_params, train):
         super(VoxelPostprocessor, self).__init__(anchor_params, train)

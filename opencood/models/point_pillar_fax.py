@@ -12,6 +12,13 @@ from opencood.models.sub_modules.swap_fusion_modules import \
 from opencood.models.sub_modules.fuse_utils import regroup
 
 
+######
+from opencood.models.sub_modules.KPN import KPN, KPN_cov, LossFunc, eval_noise_Loss, LossBasic, KPN_MAX, KPN_with_core, LossBasic
+from opencood.models.sub_modules.self_attn import V2V_AttFusion, regroup_1
+from opencood.models.sub_modules.noise import data_dropout, data_dropout_uniform,transmission_with_noise,data_dropout_feature_with_channel
+import numpy as np
+
+
 class PointPillarFax(nn.Module):
     def __init__(self, args):
         super(PointPillarFax, self).__init__()
@@ -44,6 +51,28 @@ class PointPillarFax(nn.Module):
 
         if args['backbone_fix']:
             self.backbone_fix()
+
+
+        self.noise = True###########noise
+    '''
+    add the noise for feature map
+    '''
+    def operation_noise(self, x, record_len):
+
+        # split_x = regroup_1(x, record_len)
+        # out = []
+        p = np.random.randint(0, 100)/100
+        # p=0.5
+        key_max=30   #22.5
+        # for xx in split_x:
+        #     if xx.size()[0] > 1: # generating training noise without ego feature map
+        #         xx = data_dropout_uniform(xx, p=p, key_max=key_max)
+        #     out.append(xx)
+        
+        # x = torch.cat(out, dim=0)
+        x = data_dropout_feature_with_channel(x, p=p, key_max=key_max,record_len=record_len)
+        return x
+
 
     def backbone_fix(self):
         """
@@ -95,10 +124,18 @@ class PointPillarFax(nn.Module):
         if self.compression:
             spatial_features_2d = self.naive_compressor(spatial_features_2d)
 
+        #add the noise
+        if self.noise:
+            spatial_features_2d_repair = self.operation_noise(spatial_features_2d.clone(), record_len)
+
+
         # N, C, H, W -> B,  L, C, H, W
-        regroup_feature, mask = regroup(spatial_features_2d,
+        regroup_feature, mask = regroup(spatial_features_2d_repair,
                                         record_len,
                                         self.max_cav)
+        # regroup_feature, mask = regroup(spatial_features_2d,
+        #                                 record_len,
+        #                                 self.max_cav)
         com_mask = mask.unsqueeze(1).unsqueeze(2).unsqueeze(3)
         com_mask = repeat(com_mask,
                           'b h w c l -> b (h new_h) (w new_w) c l',
@@ -110,10 +147,18 @@ class PointPillarFax(nn.Module):
         psm = self.cls_head(fused_feature)
         rm = self.reg_head(fused_feature)
 
+        ###############################
+        KPN_loss= eval_noise_Loss(spatial_features_2d_repair, spatial_features_2d)
+        print("KPN_loss: ", KPN_loss.item())
+        ###############################
+
         # output_dict = {'psm': psm,
         #                'rm': rm}
+        # output_dict = {'psm': psm,
+        #                'rm': rm,
+        #                'L1_diff_loss': 0}
         output_dict = {'psm': psm,
                        'rm': rm,
-                       'L1_diff_loss': batch_dict['L1_diff_loss']}
+                       'L1_diff_loss': KPN_loss.item()}
 
         return output_dict

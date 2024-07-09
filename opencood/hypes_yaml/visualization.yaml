@@ -2,8 +2,10 @@
 name: visualization
 
 yaml_parser: "load_voxel_params"
-root_dir: '/home/runshengxu/project/OpenCDA/opv2x_data_dumping/train'
-validate_dir: '/home/runshengxu/project/OpenCDA/opv2x_data_dumping/test'
+root_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/train"
+root_dir_target: "/home/jinlong/1.Detection_Sets/OpenCDA/data_dumping"
+validate_dir: /media/jinlong/Jinlong_CSU/V2V_RSU_2023/town10/10_18_3_1/64 #"/home/jinlong/1.Detection_Sets/OpenCDA/data_dumping"  #/media/jinlong/Jinlong_CSU/V2V_RSU_2023/test_dumping/32/2023_08_13_18_44_28 #/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/train #/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/test #/home/jinlong/jinlong_NAS/Dataset/V2V4Real/test  #"/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/test_culver_city"
+
 
 train_params:
   batch_size: &batch_size 4

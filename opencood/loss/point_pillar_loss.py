@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# Author: OpenPCDet, Runsheng Xu <rxx3386@ucla.edu>
+# License: TDG-Attribution-NonCommercial-NoDistrib
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -91,13 +96,9 @@ class PointPillarLoss(nn.Module):
 
         box_cls_labels = target_dict['pos_equal_one']
         box_cls_labels = box_cls_labels.view(psm.shape[0], -1).contiguous()
-        box_cls_labels_neg = target_dict['neg_equal_one']
-        box_cls_labels_neg = \
-            box_cls_labels_neg.view(psm.shape[0], -1).contiguous()
 
         positives = box_cls_labels > 0
-        negatives = box_cls_labels_neg > 0
-
+        negatives = box_cls_labels == 0
         negative_cls_weights = negatives * 1.0
         cls_weights = (negative_cls_weights + 1.0 * positives).float()
         reg_weights = positives.float()
@@ -211,42 +212,7 @@ class PointPillarLoss(nn.Module):
         return boxes1, boxes2
 
 
-    # def logging(self, epoch, batch_id, batch_len, writer, pbar=None):
-    #     """
-    #     Print out  the loss function for current iteration.
-
-    #     Parameters
-    #     ----------
-    #     epoch : int
-    #         Current epoch for training.
-    #     batch_id : int
-    #         The current batch.
-    #     batch_len : int
-    #         Total batch length in one iteration of training,
-    #     writer : SummaryWriter
-    #         Used to visualize on tensorboard
-    #     """
-    #     total_loss = self.loss_dict['total_loss']
-    #     reg_loss = self.loss_dict['reg_loss']
-    #     conf_loss = self.loss_dict['conf_loss']
-    #     if pbar is None:
-    #         print("[epoch %d][%d/%d], || Loss: %.4f || Conf Loss: %.4f"
-    #             " || Loc Loss: %.4f" % (
-    #                 epoch, batch_id + 1, batch_len,
-    #                 total_loss.item(), conf_loss.item(), reg_loss.item()))
-    #     else:
-    #         pbar.set_description("[epoch %d][%d/%d], || Loss: %.4f || Conf Loss: %.4f"
-    #               " || Loc Loss: %.4f" % (
-    #                   epoch, batch_id + 1, batch_len,
-    #                   total_loss.item(), conf_loss.item(), reg_loss.item()))
-
-
-    #     writer.add_scalar('Regression_loss', reg_loss.item(),
-    #                       epoch*batch_len + batch_id)
-    #     writer.add_scalar('Confidence_loss', conf_loss.item(),
-    #                       epoch*batch_len + batch_id)
-
-    def logging_kpn(self, epoch, batch_id, batch_len, writer, ouput_dict, pbar=None):
+    def logging(self, epoch, batch_id, batch_len, writer, pbar=None):
         """
         Print out  the loss function for current iteration.
 
@@ -264,7 +230,44 @@ class PointPillarLoss(nn.Module):
         total_loss = self.loss_dict['total_loss']
         reg_loss = self.loss_dict['reg_loss']
         conf_loss = self.loss_dict['conf_loss']
+        if pbar is None:
+            print("[epoch %d][%d/%d], || Loss: %.4f || Conf Loss: %.4f"
+                " || Loc Loss: %.4f" % (
+                    epoch, batch_id + 1, batch_len,
+                    total_loss.item(), conf_loss.item(), reg_loss.item()))
+        else:
+            pbar.set_description("[epoch %d][%d/%d], || Loss: %.4f || Conf Loss: %.4f"
+                  " || Loc Loss: %.4f" % (
+                      epoch, batch_id + 1, batch_len,
+                      total_loss.item(), conf_loss.item(), reg_loss.item()))
+
+
+        writer.add_scalar('Regression_loss', reg_loss.item(),
+                          epoch*batch_len + batch_id)
+        writer.add_scalar('Confidence_loss', conf_loss.item(),
+                          epoch*batch_len + batch_id)
+        
+    def logging_LCRN(self, epoch, batch_id, batch_len, writer, ouput_dict, run, pbar=None):
+        """
+        Print out  the loss function for current iteration.
+
+        Parameters
+        ----------
+        epoch : int
+            Current epoch for training.
+        batch_id : int
+            The current batch.
+        batch_len : int
+            Total batch length in one iteration of training,
+        writer : SummaryWriter
+            Used to visualize on tensorboard
+        """
+        total_loss = self.loss_dict['total_loss']
+        reg_loss = self.loss_dict['reg_loss']
+        conf_loss = self.loss_dict['conf_loss']
+
         L1_diff_loss = ouput_dict['L1_diff_loss']
+
 
 
         if pbar is None:
@@ -273,20 +276,18 @@ class PointPillarLoss(nn.Module):
                     epoch, batch_id + 1, batch_len,
                     total_loss.item(), conf_loss.item(), reg_loss.item()))
         else:
-            # pbar.set_description("[epoch %d][%d/%d], || Loss: %.4f || Conf Loss: %.4f"
-            #       " || Loc Loss: %.4f" % (
-            #           epoch, batch_id + 1, batch_len,
-            #           total_loss.item(), conf_loss.item(), reg_loss.item()))
             pbar.set_description("[epoch %d][%d/%d], || Loss: %.4f || Conf Loss: %.4f"
-                  " || Loc Loss: %.4f || L1_diff_loss: %.4f" % (
-                      epoch, batch_id + 1, batch_len,
-                      total_loss.item(), conf_loss.item(), reg_loss.item(),
-                      L1_diff_loss ))
+                    " || Loc Loss: %.4f || L1_loss: %.4f" % (
+                        epoch, batch_id + 1, batch_len,
+                        total_loss.item(), conf_loss.item(), reg_loss.item(),
+                        L1_diff_loss ))
 
 
         writer.add_scalar('Regression_loss', reg_loss.item(),
-                          epoch*batch_len + batch_id)
+                            epoch*batch_len + batch_id)
         writer.add_scalar('Confidence_loss', conf_loss.item(),
-                          epoch*batch_len + batch_id)
+                            epoch*batch_len + batch_id)
         writer.add_scalar('L1_diff_loss',L1_diff_loss,
                         epoch*batch_len + batch_id)
+
+        

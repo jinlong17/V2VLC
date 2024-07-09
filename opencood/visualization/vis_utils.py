@@ -15,6 +15,98 @@ VIRIDIS = np.array(cm.get_cmap('plasma').colors)
 VID_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
 
 
+import pdb
+
+def align_vector_to_another(a=np.array([0, 0, 1]), b=np.array([1, 0, 0])):
+    """
+    Aligns vector a to vector b with axis angle rotation
+    """
+    if np.array_equal(a, b):
+        return None, None
+    axis_ = np.cross(a, b)
+    axis_ = axis_ / np.linalg.norm(axis_)
+    angle = np.arccos(np.dot(a, b))
+
+    return axis_, angle
+
+
+def normalized(a, axis=-1, order=2):
+    """Normalizes a numpy array of points"""
+    l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
+    l2[l2 == 0] = 1
+    return a / np.expand_dims(l2, axis), l2
+
+
+class LineMesh(object):
+    def __init__(self, points, lines=None, colors=[0, 1, 0], radius=0.15):
+        """Creates a line represented as sequence of cylinder triangular meshes
+
+        Arguments:
+            points {ndarray} -- Numpy array of ponts Nx3.
+
+        Keyword Arguments:
+            lines {list[list] or None} -- List of point index pairs denoting line segments. If None, implicit lines from ordered pairwise points. (default: {None})
+            colors {list} -- list of colors, or single color of the line (default: {[0, 1, 0]})
+            radius {float} -- radius of cylinder (default: {0.15})
+        """
+        self.points = np.array(points)
+        self.lines = np.array(
+            lines) if lines is not None else self.lines_from_ordered_points(self.points)
+        self.colors = np.array(colors)
+        self.radius = radius
+        self.cylinder_segments = []
+
+        self.create_line_mesh()
+
+    @staticmethod
+    def lines_from_ordered_points(points):
+        lines = [[i, i + 1] for i in range(0, points.shape[0] - 1, 1)]
+        return np.array(lines)
+
+    def create_line_mesh(self):
+        first_points = self.points[self.lines[:, 0], :]
+        second_points = self.points[self.lines[:, 1], :]
+        line_segments = second_points - first_points
+        line_segments_unit, line_lengths = normalized(line_segments)
+
+        z_axis = np.array([0, 0, 1])
+        # Create triangular mesh cylinder segments of line
+        for i in range(line_segments_unit.shape[0]):
+            line_segment = line_segments_unit[i, :]
+            line_length = line_lengths[i]
+            # get axis angle rotation to allign cylinder with line segment
+            axis, angle = align_vector_to_another(z_axis, line_segment)
+            # Get translation vector
+            translation = first_points[i, :] + line_segment * line_length * 0.5
+            # create cylinder and apply transformations
+            cylinder_segment = o3d.geometry.TriangleMesh.create_cylinder(
+                self.radius, line_length)
+            cylinder_segment = cylinder_segment.translate(
+                translation, relative=False)
+            if axis is not None:
+                axis_a = axis * angle
+                cylinder_segment = cylinder_segment.rotate(
+                    R=o3d.geometry.get_rotation_matrix_from_axis_angle(axis_a),
+                    center=cylinder_segment.get_center())
+                # cylinder_segment = cylinder_segment.rotate(
+                #   axis_a, center=True, type=o3d.geometry.RotationType.AxisAngle)
+            # color cylinder
+            color = self.colors if self.colors.ndim == 1 else self.colors[i, :]
+            cylinder_segment.paint_uniform_color(color)
+
+            self.cylinder_segments.append(cylinder_segment)
+
+    def add_line(self, vis):
+        """Adds this line to the visualizer"""
+        for cylinder in self.cylinder_segments:
+            vis.add_geometry(cylinder)
+
+    def remove_line(self, vis):
+        """Removes this line from the visualizer"""
+        for cylinder in self.cylinder_segments:
+            vis.remove_geometry(cylinder)
+
+
 def bbx2linset(bbx_corner, order='hwl', color=(0, 0, 1)):
     """
     Convert the torch tensor bounding box to o3d lineset for visualization.
@@ -60,7 +152,11 @@ def bbx2linset(bbx_corner, order='hwl', color=(0, 0, 1)):
         line_set.points = o3d.utility.Vector3dVector(bbx)
         line_set.lines = o3d.utility.Vector2iVector(lines)
         line_set.colors = o3d.utility.Vector3dVector(colors)
-        bbx_linset.append(line_set)
+
+        line_mesh1 = LineMesh(np.array(bbx), lines, colors, radius=0.1)
+        line_mesh1_geoms = line_mesh1.cylinder_segments
+
+        bbx_linset += [*line_mesh1_geoms]
 
     return bbx_linset
 
@@ -177,22 +273,22 @@ def lineset_assign(lineset1, lineset2):
 
     Parameters
     ----------
-    lineset1 : open3d.LineSet
-    lineset2 : open3d.LineSet
+    lineset1 : open3d.geometry.TriangleMesh
+    lineset2 : open3d.geometry.TriangleMesh
 
     Returns
     -------
     The lineset1 object with 2's attributes.
     """
 
-    lineset1.points = lineset2.points
-    lineset1.lines = lineset2.lines
-    lineset1.colors = lineset2.colors
+    lineset1.triangles = lineset2.triangles
+    lineset1.vertex_colors = lineset2.vertex_colors
+    lineset1.vertices = lineset2.vertices
 
     return lineset1
 
 
-def color_encoding(intensity, mode='intensity'):
+def color_encoding(intensity, mode='v2vreal'):
     """
     Encode the single-channel intensity to 3 channels rgb color.
 
@@ -240,8 +336,18 @@ def color_encoding(intensity, mode='intensity'):
 
     elif mode == 'v2vreal':
         int_color = np.zeros((intensity.shape[0], 3))
-        int_color[intensity == 1, 0] = 255 / 255
-        int_color[intensity == 2, 1] = 255 / 255
+        int_color[intensity == 1, 0] = 197 / 255
+        int_color[intensity == 1, 1] = 112 / 255
+        int_color[intensity == 1, 2] = 139 / 255
+
+        int_color[intensity == 2, 0] = 65 / 255
+        int_color[intensity == 2, 1] = 176 / 255
+        int_color[intensity == 2, 2] = 73 / 255
+
+        #jinlong
+        int_color[intensity == 3, 0] = 255 / 255
+        int_color[intensity == 3, 1] = 99 / 255
+        int_color[intensity == 3, 2] = 71 / 255
 
     return int_color
 
@@ -251,7 +357,7 @@ def visualize_single_sample_output_gt(pred_tensor,
                                       pcd,
                                       show_vis=True,
                                       save_path='',
-                                      mode='constant'):
+                                      mode='v2vreal'):
     """
     Visualize the prediction, groundtruth with point cloud together.
 
@@ -281,6 +387,7 @@ def visualize_single_sample_output_gt(pred_tensor,
         vis.create_window()
 
         opt = vis.get_render_option()
+        opt.line_width = 10
         opt.background_color = np.asarray([0, 0, 0])
         opt.point_size = 1.0
 
@@ -307,8 +414,9 @@ def visualize_single_sample_output_gt(pred_tensor,
     o3d_pcd.points = o3d.utility.Vector3dVector(origin_lidar[:, :3])
     o3d_pcd.colors = o3d.utility.Vector3dVector(origin_lidar_intcolor)
 
-    oabbs_pred = bbx2oabb(pred_tensor, color=(1, 0, 0))
-    oabbs_gt = bbx2oabb(gt_tensor, color=(0, 1, 0))
+    oabbs_pred = bbx2linset(pred_tensor, color=(1, 0, 0))
+    #oabbs_pred = bbx2oabb(pred_tensor, color=(1, 0, 0))
+    oabbs_gt = bbx2linset(gt_tensor, color=(0, 1, 0))
 
     visualize_elements = [o3d_pcd] + oabbs_pred + oabbs_gt
     if show_vis:
@@ -337,12 +445,12 @@ def visualize_sequence_sample_output(pred_tensor_list,
             gt_tensor = gt_tensor.copy()
             pcd = pcd.copy()
 
-            pcd_intcolor = color_encoding(pcd[:, -1])
+            pcd_intcolor = color_encoding(pcd[:, -1], mode = 'v2vreal')
             pcd[:, :1] = -pcd[:, :1]
             vis_pcd.points = o3d.utility.Vector3dVector(pcd[:, :3])
             vis_pcd.colors = o3d.utility.Vector3dVector(pcd_intcolor)
 
-            oabbs_pred = bbx2oabb(pred_tensor, 'hwl')
+            oabbs_pred = bbx2oabb(pred_tensor, 'hwl', color=(0, 1, 0))
             oabbs_gt = bbx2oabb(gt_tensor, 'hwl', color=(0, 0, 1))
             oabbs = oabbs_pred + oabbs_gt
 
@@ -361,10 +469,89 @@ def visualize_sequence_sample_output(pred_tensor_list,
             vis.poll_events()
             vis.update_renderer()
 
-            for oabb in oabbs:
-                vis.remove_geometry(oabb)
-            time.sleep(0.01)
-    vis.destroy_window()
+##TODO:jinlong
+def visualize_sequence_sample_output_1(pred_tensor_list,
+                                     gt_tensor_list,
+                                     pcd_list):
+
+    def custom_draw_geometry(i,vis_pcd,oabbs_pred,oabbs_gt):
+        vis = o3d.visualization.Visualizer()
+        vis.create_window()
+
+        # vis.get_render_option().background_color = [0.05, 0.05, 0.05]
+        # vis.get_render_option().background_color = [1.0, 1.0, 1.0]
+        vis.get_render_option().point_size = 2.5
+        vis.get_render_option().line_width = 2
+        # vis.get_render_option().show_coordinate_frame = True     
+
+        # if i == 0:
+        #     vis.add_geometry(vis_pcd)
+
+        vis.add_geometry(vis_pcd)
+        # for oabb in oabbs:
+        #     vis.add_geometry(oabb)
+        for oabb in oabbs_pred:
+            vis.add_geometry(oabb)
+
+        for oabb in oabbs_gt:
+            vis.add_geometry(oabb)
+
+        vis.poll_events()
+        vis.update_renderer()
+
+
+        time.sleep(0.01)
+        vis.run()
+        vis.destroy_window()
+
+
+    
+    for i, (pred_tensor, gt_tensor, pcd) in \
+            enumerate(zip(pred_tensor_list, gt_tensor_list, pcd_list)):
+        
+
+        print(i)   
+        # if i <150:
+
+            # continue
+
+        pred_tensor = pred_tensor.copy()
+        gt_tensor = gt_tensor.copy()
+        pcd = pcd.copy()
+
+        pcd_intcolor = color_encoding(pcd[:, -1], mode = 'v2vreal')
+        pcd[:, :1] = -pcd[:, :1]
+        vis_pcd = o3d.geometry.PointCloud()
+        vis_pcd.points = o3d.utility.Vector3dVector(pcd[:, :3])
+        vis_pcd.colors = o3d.utility.Vector3dVector(pcd_intcolor)
+
+        oabbs_pred = bbx2oabb(pred_tensor, 'hwl', color=(0, 0, 1))
+        oabbs_gt = bbx2oabb(gt_tensor, 'hwl', color=(0, 1, 0))
+
+        oabbs = oabbs_pred + oabbs_gt
+
+        custom_draw_geometry(i,vis_pcd,oabbs_pred,oabbs_gt)
+
+
+        # ctr = vis.get_view_control()
+        # param = o3d.io.read_pinhole_camera_parameters('pinhole_param.json')
+        # ctr.convert_from_pinhole_camera_parameters(param)
+
+        # vis.poll_events()
+        # vis.update_renderer()
+
+        # for oabb in oabbs:
+        #     vis.remove_geometry(oabb)
+        # time.sleep(0.01)
+        # while True:
+            # time.sleep(1)
+            # pdb.set_trace()
+        # vis.run()
+        # vis.destroy_window()
+
+
+
+
 
 
 def visualize_single_sample_output_bev(pred_box, gt_box, pcd, dataset,
@@ -496,7 +683,13 @@ def visualize_single_sample_dataloader(batch_data,
         bbx2oabb(object_bbx_center, order)
     visualize_elements = [o3d_pcd] + aabbs
     if visualize:
+        # mat = o3d.visualization.Material
+        # mat.shader = "unlitLine"
+        # mat.line_width = 5
         o3d.visualization.draw_geometries(visualize_elements)
+        # o3d.visualization.draw({"name": "lines",
+        #                         "geometry": aabbs,
+        #                         "material": mat})
 
     if save_path:
         save_o3d_visualization(visualize_elements, save_path)
@@ -574,16 +767,17 @@ def visualize_sequence_dataloader(dataloader, order, color_mode='constant'):
     vis = o3d.visualization.Visualizer()
     vis.create_window()
 
-    vis.get_render_option().background_color = [0.05, 0.05, 0.05]
+    vis.get_render_option().background_color = [1.0, 1.0, 1.0]
     vis.get_render_option().point_size = 1.0
+    vis.get_render_option().line_width = 10
     vis.get_render_option().show_coordinate_frame = True
 
     # used to visualize lidar points
     vis_pcd = o3d.geometry.PointCloud()
     # used to visualize object bounding box, maximum 50
     vis_aabbs = []
-    for _ in range(50):
-        vis_aabbs.append(o3d.geometry.LineSet())
+    for _ in range(500):
+        vis_aabbs.append(o3d.geometry.TriangleMesh())
 
     while True:
         for i_batch, sample_batched in enumerate(dataloader):
@@ -593,7 +787,7 @@ def visualize_sequence_dataloader(dataloader, order, color_mode='constant'):
                                                    vis_pcd,
                                                    order,
                                                    mode=color_mode,
-                                                   visualize=False)
+                                                   visualize=False )
             if i_batch == 0:
                 vis.add_geometry(pcd)
                 for i in range(len(vis_aabbs)):
@@ -657,3 +851,31 @@ def visualize_bev(batch_data):
     plt.matshow(label_map[0, :, :])
     plt.axis("off")
     plt.show()
+
+
+if __name__ == "__main__":
+    # Create Line Set
+    points = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1],
+              [0, 1, 1], [1, 1, 1]]
+    lines = [[0, 1], [0, 2], [1, 3], [2, 3], [4, 5], [4, 6], [5, 7], [6, 7],
+             [0, 4], [1, 5], [2, 6], [3, 7]]
+    colors = [[1, 0, 0] for i in range(len(lines))]
+
+    line_set = o3d.geometry.LineSet()
+    line_set.points = o3d.utility.Vector3dVector(points)
+    line_set.lines = o3d.utility.Vector2iVector(lines)
+    line_set.colors = o3d.utility.Vector3dVector(colors)
+
+    # Create Line Mesh 1
+    points = np.array(points) + [0, 0, 2]
+    line_mesh1 = LineMesh(points, lines, colors, radius=0.02)
+    line_mesh1_geoms = line_mesh1.cylinder_segments
+    a = []
+    a += [*line_mesh1_geoms]
+    # Create Line Mesh 1
+    points = np.array(points) + [0, 2, 0]
+    line_mesh2 = LineMesh(points, radius=0.03)
+    line_mesh2_geoms = line_mesh2.cylinder_segments
+
+    o3d.visualization.draw_geometries(
+        a)

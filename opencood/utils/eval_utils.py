@@ -87,7 +87,70 @@ def caluclate_tp_fp(det_boxes, det_score, gt_boxes, result_stat, iou_thresh):
     result_stat[iou_thresh]['gt'] += gt
 
 
-def calculate_ap(result_stat, iou):
+# def calculate_ap(result_stat, iou):
+#     """
+#     Calculate the average precision and recall, and save them into a txt.
+
+#     Parameters
+#     ----------
+#     result_stat : dict
+#         A dictionary contains fp, tp and gt number.
+#     iou : float
+#     """
+#     iou_5 = result_stat[iou]
+
+#     fp = iou_5['fp']
+#     tp = iou_5['tp']
+#     assert len(fp) == len(tp)
+
+#     gt_total = iou_5['gt']
+
+#     cumsum = 0
+#     for idx, val in enumerate(fp):
+#         fp[idx] += cumsum
+#         cumsum += val
+
+#     cumsum = 0
+#     for idx, val in enumerate(tp):
+#         tp[idx] += cumsum
+#         cumsum += val
+
+#     rec = tp[:]
+#     for idx, val in enumerate(tp):
+#         rec[idx] = float(tp[idx]) / gt_total
+
+#     prec = tp[:]
+#     for idx, val in enumerate(tp):
+#         prec[idx] = float(tp[idx]) / (fp[idx] + tp[idx])
+
+#     ap, mrec, mprec = voc_ap(rec[:], prec[:])
+
+#     return ap, mrec, mprec
+
+
+# def eval_final_results(result_stat, save_path):
+#     dump_dict = {}
+
+#     ap_30, mrec_30, mpre_30 = calculate_ap(result_stat, 0.30)
+#     ap_50, mrec_50, mpre_50 = calculate_ap(result_stat, 0.50)
+#     ap_70, mrec_70, mpre_70 = calculate_ap(result_stat, 0.70)
+
+#     dump_dict.update({'ap30': ap_30,
+#                       'ap_50': ap_50,
+#                       'ap_70': ap_70,
+#                       'mpre_50': mpre_50,
+#                       'mrec_50': mrec_50,
+#                       'mpre_70': mpre_70,
+#                       'mrec_70': mrec_70,
+#                       })
+#     yaml_utils.save_yaml(dump_dict, os.path.join(save_path, 'eval.yaml'))
+
+#     print('The Average Precision at IOU 0.3 is %.2f, '
+#           'The Average Precision at IOU 0.5 is %.2f, '
+#           'The Average Precision at IOU 0.7 is %.2f' % (ap_30, ap_50, ap_70))
+    
+
+def calculate_ap(result_stat, iou, global_sort_detections):
     """
     Calculate the average precision and recall, and save them into a txt.
 
@@ -95,13 +158,29 @@ def calculate_ap(result_stat, iou):
     ----------
     result_stat : dict
         A dictionary contains fp, tp and gt number.
+        
     iou : float
+        The threshold of iou.
+
+    global_sort_detections : bool
+        Whether to sort the detection results globally.
     """
     iou_5 = result_stat[iou]
 
-    fp = iou_5['fp']
-    tp = iou_5['tp']
-    assert len(fp) == len(tp)
+    if global_sort_detections:
+        fp = np.array(iou_5['fp'])
+        tp = np.array(iou_5['tp'])
+        score = np.array(iou_5['score'])
+
+        assert len(fp) == len(tp) and len(tp) == len(score)
+        sorted_index = np.argsort(-score)
+        fp = fp[sorted_index].tolist()
+        tp = tp[sorted_index].tolist()
+        
+    else:
+        fp = iou_5['fp']
+        tp = iou_5['tp']
+        assert len(fp) == len(tp)
 
     gt_total = iou_5['gt']
 
@@ -127,13 +206,12 @@ def calculate_ap(result_stat, iou):
 
     return ap, mrec, mprec
 
-
-def eval_final_results(result_stat, save_path):
+def eval_final_results(result_stat, save_path, global_sort_detections):
     dump_dict = {}
 
-    ap_30, mrec_30, mpre_30 = calculate_ap(result_stat, 0.30)
-    ap_50, mrec_50, mpre_50 = calculate_ap(result_stat, 0.50)
-    ap_70, mrec_70, mpre_70 = calculate_ap(result_stat, 0.70)
+    ap_30, mrec_30, mpre_30 = calculate_ap(result_stat, 0.30, global_sort_detections)
+    ap_50, mrec_50, mpre_50 = calculate_ap(result_stat, 0.50, global_sort_detections)
+    ap_70, mrec_70, mpre_70 = calculate_ap(result_stat, 0.70, global_sort_detections)
 
     dump_dict.update({'ap30': ap_30,
                       'ap_50': ap_50,
@@ -143,7 +221,9 @@ def eval_final_results(result_stat, save_path):
                       'mpre_70': mpre_70,
                       'mrec_70': mrec_70,
                       })
-    yaml_utils.save_yaml(dump_dict, os.path.join(save_path, 'eval.yaml'))
+    
+    output_file = 'eval.yaml' if not global_sort_detections else 'eval_global_sort.yaml'
+    yaml_utils.save_yaml(dump_dict, os.path.join(save_path, output_file))
 
     print('The Average Precision at IOU 0.3 is %.2f, '
           'The Average Precision at IOU 0.5 is %.2f, '

@@ -1,25 +1,16 @@
-name: 1.noise_point_pillar_opv2v
-#root_dir: '/home/runshengxu/project/Cooperative_perception/opencood/tmp'
-root_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/train"
-validate_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/validate"
-
-wild_setting:
-  async: false
-  async_overhead: 100
-  seed: 20
-  loc_err: false
-  xyz_std: 0.2
-  ryp_std: 0.2
-  data_size: 1.06 # Mb!!
-  transmission_speed: 27 # Mbps!!
-  backbone_delay: 10 # ms
+name: 3.LCRN+V2VAM_nocompression_noise29.5_bs4_4conv_5sigmoid #point_pillar_intermediate_V2VAM_nocompression_w_lcrn_2
+save_folder: "/home/jinlongli/1.Detection_Set/TIV_LCRN/NEW_log/4.lcrn"
+# root_dir: "opv2v_data_dumping/train"
+# validate_dir: "opv2v_data_dumping/validate"
+root_dir: "/home/jinlongli/personal/DATASet/opv2v_data_dumping/train"
+validate_dir: "/home/jinlongli/personal/DATASet/opv2v_data_dumping/test_culver_city" #validate
 
 yaml_parser: "load_point_pillar_params"
 train_params:
   batch_size: &batch_size 4
   epoches: &epoches 60
   eval_freq: 1
-  save_freq: 1
+  save_freq: 2
   max_cav: &max_cav 5
 
 fusion:
@@ -31,12 +22,12 @@ preprocess:
   # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
   core_method: 'SpVoxelPreprocessor'
   args:
-    voxel_size: &voxel_size [0.4, 0.4, 8]
+    voxel_size: &voxel_size [0.4, 0.4, 4]
     max_points_per_voxel: 32
     max_voxel_train: 32000
     max_voxel_test: 70000
   # lidar range for each individual cav.
-  cav_lidar_range: &cav_lidar [-140.8, -38.4, -5, 140.8, 38.4, 3]
+  cav_lidar_range: &cav_lidar [-140.8, -40, -3, 140.8, 40, 1]
 
 data_augment:
   - NAME: random_world_flip
@@ -69,18 +60,20 @@ postprocess:
 
 # model related
 model:
-  core_method: point_pillar_opv2v_kpn
+  core_method: point_pillar_intermediate_V2VAM_w_lcrn
   args:
     voxel_size: *voxel_size
     lidar_range: *cav_lidar
     anchor_number: *achor_num
     max_cav: *max_cav
-    compression: 32 # compression rate
+    compression: 0 #32 # compression rate
     backbone_fix: false
+    lc_noise: true  #false
+    lc_noise_max: 29.5 #29.5
 
     pillar_vfe:
       use_norm: true
-      with_distance: false
+      with_distance: false3
       use_absolute_xyz: true
       num_filters: [64]
     point_pillar_scatter:
@@ -92,16 +85,12 @@ model:
       num_filters: [64, 128, 256]
       upsample_strides: [1, 2, 4]
       num_upsample_filter: [128, 128, 128]
-      KPN: 3
-      KPN_channels: [64, 128, 256, 384]
     shrink_header:
       kernal_size: [3]
       stride: [2]
       padding: [1]
       dim: [256]
       input_dim: 384 # 128 * 3
-
-      # add decoder later
 
 loss:
   core_method: point_pillar_loss
@@ -111,15 +100,19 @@ loss:
 
 optimizer:
   core_method: Adam
-  lr: 0.001
+  lr: 0.0000001
   args:
     eps: 1e-10
     weight_decay: 1e-4
 
+# lr_scheduler:
+#   core_method: multistep #step, multistep and Exponential support
+#   gamma: 0.1
+#   step_size: [15,40,60]
 lr_scheduler:
     core_method: cosineannealwarm #step, multistep, Exponential and cosineannealwarm support
     epoches: *epoches
-    warmup_lr: 2e-4
+    warmup_lr: 2e-4  #2e-4
     warmup_epoches: 10
-    lr_min: 2e-5
+    lr_min: 2e-5  #2e-5
 

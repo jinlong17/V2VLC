@@ -244,6 +244,7 @@ class BevPostprocessor(BasePostprocessor):
         pred_score_list = []
 
         for cav_id, cav_content in data_dict.items():
+            ##TODO:jinlong
             assert cav_id in output_dict
             # the transformation matrix to ego space
             transformation_matrix = cav_content['transformation_matrix']

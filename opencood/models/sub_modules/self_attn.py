@@ -7,7 +7,12 @@ import torch.nn.functional as F
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Softmax
+
+import pdb
+
+
+from torch.nn import Module, Sequential, Conv2d, ReLU,AdaptiveMaxPool2d, AdaptiveAvgPool2d, \
+    NLLLoss, BCELoss, CrossEntropyLoss, AvgPool2d, MaxPool2d, Parameter, Linear, Sigmoid, Softmax, Dropout, Embedding
 
 class ScaledDotProductAttention(nn.Module):
     """
@@ -61,219 +66,83 @@ class AttFusion(nn.Module):
         split_x = torch.tensor_split(x, cum_sum_len[:-1].cpu())
         return split_x
 
+class Adding_fusion(nn.Module):
+    def __init__(self, feature_dim):
+        super(Adding_fusion, self).__init__()
+        self.conv = nn.Conv2d(feature_dim, feature_dim, kernel_size=1)
+        self.conv1 = nn.Conv2d(feature_dim, feature_dim, kernel_size=1)
 
+    def forward(self, x, record_len):
+        split_x = self.regroup(x, record_len)
+        batch_size = len(record_len)
+        C, W, H = split_x[0].shape[1:]
+        out = []
+        for xx in split_x: #xx=[num_car, C, W, H]
+            ego_q = xx[0:1] 
+            context = torch.zeros_like(ego_q)
+            for i in range(len(xx[:,0,0,0])):
+                context = context + self.conv(xx[i:i+1])
+            out.append(context/len(xx[:,0,0,0]))
+            torch.cuda.empty_cache()
+        return  self.conv1(torch.cat(out, dim=0))
+
+    def regroup(self, x, record_len):
+        cum_sum_len = torch.cumsum(record_len, dim=0)
+        split_x = torch.tensor_split(x, cum_sum_len[:-1].cpu())
+        return split_x
 
 class V2V_AttFusion(nn.Module):
     def __init__(self, feature_dim):
         super(V2V_AttFusion, self).__init__()
         
-        # self.attention1 = PAM_Module(feature_dim)
-        # self.attention2 = CAM_Module(feature_dim)
-        # self.attention3 = UFOAttention(feature_dim)
-        # self.attention4 = TripletAttention()
-        # self.attention5 = PSA(channel=feature_dim, reduction=8)
-        # self.attention6 = OutlookAttention(feature_dim, num_heads=16)
-        # self.attention7 = SpatialGroupEnhance(groups=8)
-        # self.attention8 = DoubleAttention(in_channels=feature_dim ,c_m=256,c_n=256)
-        # self.attention9 = ShuffleAttention(channel=feature_dim, G=8)
-
 
         # self.cov_ego = torch.nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=1)
         # self.cov2_cav = torch.nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=1)
 
         # self.attention_1 = my_attention(feature_dim)
         self.attention_2 = CrissCrossAttention(feature_dim)
+        # self.attention_3 =CAM_Module(feature_dim)
+        self.cov_att = nn.Sequential(
+                nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=1),
+                nn.BatchNorm2d(feature_dim,eps=1e-5, momentum=0.01, affine=True),
+                nn.ReLU()
+            )
 
         
 
     def forward(self, x, record_len):
+
+
+        #### the first attention
+        # x = self.attention_2(x, x, x)
+
+
         split_x = self.regroup(x, record_len)  #x =[5, 64, 100, 352], record_len=[3,2]
         batch_size = len(record_len)
         C, W, H = split_x[0].shape[1:]
 
         out = []
         for xx in split_x:#split_x[0] [num_car, C, W, H]
-          cav_num = xx.shape[0]
+            cav_num = xx.shape[0]
 
+            ''' CCNet: Criss-Cross Attention Module: attention for ego vehicle feature + cav feature '''
 
-          # '''Co_method_1: original version: attention for ego vehicle feature + cav feature  '''
+            ego_q, ego_k, ego_v = xx[0:1], xx[0:1], xx[0:1] 
+            context = torch.zeros_like(ego_q)
+            for i in range(len(xx[:,0,0,0])):
+                # pdb.set_trace()
+                att_vehicle = self.attention_2(ego_q, xx[i:i+1], xx[i:i+1])
+                context = att_vehicle + context
 
-          # xx = xx.view(cav_num, C, -1).permute(2, 0, 1)
-          # att_ego, att_cav = self.attention_1(xx)
-          # # pdb.set_trace()
+            # att = context + self.cov_ego(ego_v)######################################################
+            att = self.cov_att(context)
 
-          # # att = att.permute(1, 2, 0).view(cav_num, C, W, H)[0, ...].unsqueeze(0)
-          # att_ego = att_ego.permute(1,2,0).view(1, C, W, H)
-
-          # if type(att_cav)==int:
-          #       att = self.cov_ego(att_ego)
-
-          # else:
-            
-          #   att_cav = att_cav.permute(1,2,0).view(1, C, W, H)
-            
-          
-          #   att = self.cov_ego(att_ego)+ self.cov2_cav(att_cav)
-            
-          # out.append(att) #[[1, 64, 100, 352], [1, 64, 100, 352]]
-
-          ''' CCNet: Criss-Cross Attention Module: attention for ego vehicle feature + cav feature '''
-
-          ego_q, ego_k, ego_v = xx[0:1], xx[0:1], xx[0:1] 
-          context = torch.zeros_like(ego_q)
-          for i in range(len(xx[:,0,0,0])):
             # pdb.set_trace()
-            att_vehicle = self.attention_2(ego_q, xx[i:i+1], xx[i:i+1])
-            context = att_vehicle + context
-
-          att = context
-
-          # pdb.set_trace()
-          out.append(att) #[[1, 64, 100, 352], [1, 64, 100, 352]]
-          torch.cuda.empty_cache()
-
-        #   ''' CCNet:contrast experiments '''
-
-
-
-        #   xx = xx.view(1, -1, W, H)
-        #   # feat_in_dim = xx.shape[3]
-        #   # pdb.set_trace()
-        #   att = self.attention_2(xx, xx, xx)
-        #   # print("att shape:", att.size())
-        #   # pdb.set_trace()
-        #   # att_1 = att.permute(0,3,2,1)
-        #   # cov = torch.nn.Conv2d(in_channels=feat_in_dim, out_channels=H, kernel_size=1).cuda()
-        #   att_ego = att[:,0:C,:,:]
-        #   # att_ego = att_ego.permute(0,3,2,1)
-
-        #   out.append(att_ego)
-
-
-            # '''Co_method_1: PCAM + PCAM '''
-
-            # att1 = self.attention1(xx)
-            # att2 = self.attention2(xx)
-            # att1 = att1[0, ...].unsqueeze(0)
-            # att2 = att2[0, ...].unsqueeze(0)
-            # att_multi = (att1+att2)*0.5
-
-            # att3 = self.attention1(xx[0].unsqueeze(0))
-            # att4 = self.attention2(xx[0].unsqueeze(0))
-            # att_ego = att3+att4
-
-            # att = att_multi +att_ego
-            # out.append(att)
-
-            # '''Co_method_2: PCAM+Triplet_conv '''
-
-            # att1 = self.attention1(xx)
-            # att2 = self.attention2(xx)
-            # att1 = att1[0, ...].unsqueeze(0)
-            # att2 = att2[0, ...].unsqueeze(0)
-            # att_multi = att1+att2
-
-            # att3 = self.attention4(xx[0].unsqueeze(0))
-            # att_ego = att3
-
-            # att = self.cov1(att_multi) + self.cov2(att_ego)
-            # out.append(att)
-
-            # '''Co_method_3: PCAM+shuffle_conv '''
-
-            # att1 = self.attention1(xx)
-            # att2 = self.attention2(xx)
-            # att1 = att1[0, ...].unsqueeze(0)
-            # att2 = att2[0, ...].unsqueeze(0)
-            # att_multi = att1+att2
-
-            # att3 = self.attention9(xx[0].unsqueeze(0))
-            # att_ego = att3
-
-            # att = self.cov1(att_multi) + self.cov2(att_ego)
-            # out.append(att)
-
-
-            # '''Co_method_4: PCAM+A2_conv '''
-            
-
-            # att1 = self.attention1(xx)
-            # att2 = self.attention2(xx)
-            # att1 = att1[0, ...].unsqueeze(0)
-            # att2 = att2[0, ...].unsqueeze(0)
-            # att_multi = att1+att2
-
-            # att3 = self.attention8(xx[0].unsqueeze(0))
-            # att_ego = att3
-
-            # att = self.cov1(att_multi) + self.cov2(att_ego)
-            # out.append(att)
-
-            # '''Method_1: PAM'''
-            # att1 = self.attention1(xx)
-            # att1 = att1[0, ...].unsqueeze(0)
-            # att = att1
-            # out.append(att)
-
-            # '''Method_2: PAM+CAM'''
-            # att1 = self.attention1(xx)
-            # att2 = self.attention2(xx)
-            # att1 = att1[0, ...].unsqueeze(0)
-            # att2 = att2[0, ...].unsqueeze(0)
-            # att = att1+att2
-            # out.append(att)
-
-            # '''Method_3: UFOAttention Nan!!!'''
-            # xx = xx.view(cav_num, C, -1).permute(2, 0, 1) #[35200, 2, 64]
-            # att1 = self.attention3(xx,xx,xx)
-            # att1 = att1.permute(1, 2, 0).view(cav_num, C, W, H)[0, ...].unsqueeze(0)
-            # att = att1
-            # out.append(att)
-
-            # '''Method_4:TripletAttention'''
-            # att1 = self.attention4(xx)
-            # att1 = att1[0, ...].unsqueeze(0)
-            # att = att1
-            # out.append(att)
-
-            # '''Method_5:PSA Attention'''
-            # xx = xx.view(1, C, cav_num, H*W)
-            # att1 = self.attention5(xx)
-            # att1 = att1.permute(2, 1, 0, 3).view(cav_num, C, W, H)[0, ...].unsqueeze(0)
-            # att = att1
-            # out.append(att)
-
-            # '''Method_6:OutlookAttention'''
-            # xx = xx.view(1, H*W, cav_num, C)
-            # att1 = self.attention6(xx)
-            # att1 = att1.permute(2, 3, 0, 1).view(cav_num, C, W, H)[0, ...].unsqueeze(0)
-            # att = att1
-            # out.append(att)
-
-            # '''Method_7:SpatialGroupEnhance'''
-            # xx = xx.view(1, H*W, cav_num, C)
-            # att1 = self.attention7(xx)
-            # att1 = att1.permute(2, 3, 0, 1).view(cav_num, C, W, H)[0, ...].unsqueeze(0)
-            # att = att1
-            # out.append(att)
-
-
-            # '''Method_8:A2Atttention'''
-            # xx = xx.view(1, C, cav_num, H*W)
-            # att1 = self.attention8(xx)
-            # att1 = att1.permute(2, 1, 0, 3).view(cav_num, C, W, H)[0, ...].unsqueeze(0)
-            # att = att1
-            # out.append(att)
-
-            # '''Method_9:ShuffleAttention'''
-            # xx = xx.view(1, C, cav_num, H*W)
-            # att1 = self.attention9(xx)
-            # att1 = att1.permute(2, 1, 0, 3).view(cav_num, C, W, H)[0, ...].unsqueeze(0)
-            # att = att1
-            # out.append(att)
-
+            out.append(att) #[[1, 64, 100, 352], [1, 64, 100, 352]]
+            torch.cuda.empty_cache()
 
         return torch.cat(out, dim=0) #[2, 64, 100, 352]
+        # return self.attention_3(torch.cat(out, dim=0))
 
     def regroup(self, x, record_len):
         cum_sum_len = torch.cumsum(record_len, dim=0)
@@ -281,7 +150,132 @@ class V2V_AttFusion(nn.Module):
         # pdb.set_trace()
         return split_x
 
-def regroup(x, record_len):
+
+
+class V2V_S_AttFusion(nn.Module):
+    def __init__(self, feature_dim):
+        super(V2V_S_AttFusion, self).__init__()
+        
+        # self.cov_ego = torch.nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=1)
+        # self.cov_att = torch.nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=1)
+        # self.cov_ego = nn.Sequential(
+        #         nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=1),
+        #         nn.BatchNorm2d(feature_dim,eps=1e-5, momentum=0.01, affine=True),
+        #         nn.ReLU()
+        #     )
+        # self.cov_att = nn.Sequential(
+        #         nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=1),
+        #         nn.BatchNorm2d(feature_dim,eps=1e-5, momentum=0.01, affine=True),
+        #         nn.ReLU()
+        #     )
+        self.cov_att = nn.Sequential(
+                nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=3, padding=1),
+                nn.BatchNorm2d(feature_dim,eps=1e-5, momentum=0.01, affine=True),
+                nn.ReLU()
+            )
+        # self.cov_att = nn.Sequential(
+        #         nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=5, padding=2),
+        #         nn.BatchNorm2d(feature_dim,eps=1e-5, momentum=0.01, affine=True),
+        #         nn.ReLU()
+        #     )
+        # self.cov_att = nn.Sequential(
+        #         nn.Conv2d(in_channels=feature_dim, out_channels=feature_dim, kernel_size=7, padding=3),
+        #         nn.BatchNorm2d(feature_dim,eps=1e-5, momentum=0.01, affine=True),
+        #         nn.ReLU()
+        #     )
+        self.CCNet = CrissCrossAttention(feature_dim)
+        # self.attention_3 =CAM_Module(feature_dim)
+
+    def forward(self, x, record_len):
+
+        split_x = self.regroup(x, record_len)  #x =[5, 64, 100, 352], record_len=[3,2]
+
+        out = []
+        att = []
+        for xx in split_x:#split_x[0] [num_car, C, W, H]
+
+            ''' CCNet: Criss-Cross Attention Module: attention for ego vehicle feature + cav feature '''
+
+            ego_q, ego_k, ego_v = xx[0:1], xx[0:1], xx[0:1] 
+            for i in range(len(xx[:,0,0,0])):
+                att_vehicle = self.CCNet(ego_q, xx[i:i+1], xx[i:i+1])
+                att.append(att_vehicle)
+
+            pooling_max = torch.max(torch.cat(att, dim=0), dim=0, keepdim=True)[0]
+            pooling_ave = torch.mean(torch.cat(att, dim=0), dim=0, keepdim=True)[0]
+
+            fuse_fea = pooling_max + pooling_ave
+            # fuse_fea = torch.cat([pooling_max, pooling_ave], dim=0)
+
+            ####method 1
+            # fuse_att = fuse_fea + ego_v
+            ####method 2 note that works.
+            fuse_att = fuse_fea
+
+
+
+            fuse_att = self.cov_att(fuse_att)
+
+            out.append(fuse_att) #[[1, 64, 100, 352], [1, 64, 100, 352]]
+            torch.cuda.empty_cache()
+
+        return torch.cat(out, dim=0) #[2, 64, 100, 352]
+        # return self.attention_3(torch.cat(out, dim=0))
+
+    def regroup(self, x, record_len):
+        cum_sum_len = torch.cumsum(record_len, dim=0)
+        split_x = torch.tensor_split(x, cum_sum_len[:-1].cpu())
+
+        return split_x
+
+
+
+
+
+
+class NO_Fusion_Att(nn.Module):
+    def __init__(self, feature_dim):
+        super(NO_Fusion_Att, self).__init__()
+        self.CCNet = CrissCrossAttention(feature_dim)
+
+    def forward(self, x, record_len):
+
+        # split_x = self.regroup(x, record_len)  #x =[5, 64, 100, 352], record_len=[3,2]
+
+        out = []
+        att = []
+        split_x = [x]
+        for xx in split_x:#split_x[0] [num_car, C, W, H]
+
+            ''' CCNet: Criss-Cross Attention Module: attention for ego vehicle feature + cav feature '''
+            ego_q, ego_k, ego_v = xx[0:1], xx[0:1], xx[0:1] 
+            ############# 1. no-fusion + only CCNet for Intra-Vehicle  #############
+            # fuse_att = self.CCNet(ego_q, ego_k, ego_v)
+            fuse_att = self.CCNet(xx, xx, xx)
+
+            ############# 2. no-fusion + only CCNet for Intra-Vehicle  #############
+            # if len(xx[:,0,0,0]) == 1:
+            #     fuse_att = ego_v
+            # else:
+            #     for i in range(len(xx[:,0,0,0])):
+            #         att_vehicle = self.CCNet(ego_q, xx[i:i+1], xx[i:i+1])
+            #         att.append(att_vehicle)
+            #     fuse_att = torch.sum(torch.cat(att[1:], dim=0), dim=0, keepdim=True)
+
+
+            # pdb.set_trace()
+            out.append(fuse_att) #[[1, 64, 100, 352], [1, 64, 100, 352]]
+
+        return torch.cat(out, dim=0) #[2, 64, 100, 352]
+
+    def regroup(self, x, record_len):
+        cum_sum_len = torch.cumsum(record_len, dim=0)
+        split_x = torch.tensor_split(x, cum_sum_len[:-1].cpu())
+
+        return split_x
+
+
+def regroup_1(x, record_len):
     cum_sum_len = torch.cumsum(record_len, dim=0)
     split_x = torch.tensor_split(x, cum_sum_len[:-1].cpu())
     # pdb.set_trace()
@@ -297,9 +291,35 @@ class CrissCrossAttention(nn.Module):
     """ Criss-Cross Attention Module"""
     def __init__(self, in_dim):
         super(CrissCrossAttention,self).__init__()
+
         # self.query_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim//8, kernel_size=1)
         # self.key_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim//8, kernel_size=1)
         # self.value_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+
+
+
+        # self.query_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        # self.key_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        # self.value_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+
+
+        self.query_conv = nn.Sequential(
+                nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1),
+                nn.BatchNorm2d(in_dim,eps=1e-5, momentum=0.01, affine=True),
+                nn.ReLU()
+            )
+        self.key_conv = nn.Sequential(
+                nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1),
+                nn.BatchNorm2d(in_dim,eps=1e-5, momentum=0.01, affine=True),
+                nn.ReLU()
+            )
+        self.value_conv = nn.Sequential(
+                nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1),
+                nn.BatchNorm2d(in_dim,eps=1e-5, momentum=0.01, affine=True),
+                nn.ReLU()
+            )
+
+
         self.softmax = Softmax(dim=3)
         self.INF = INF
         self.gamma = nn.Parameter(torch.zeros(1))
@@ -308,21 +328,21 @@ class CrissCrossAttention(nn.Module):
     def forward(self, query, key, value):
         m_batchsize, _, height, width = query.size()
 
-        proj_query = query
-        proj_key = key
-        proj_value = value
+        # proj_query = query
+        # proj_key = key
+        # proj_value = value
         
-        # proj_query = self.query_conv(query)
+        proj_query = self.query_conv(query)
         proj_query_H = proj_query.permute(0,3,1,2).contiguous().view(m_batchsize*width,-1,height).permute(0, 2, 1)
         proj_query_W = proj_query.permute(0,2,1,3).contiguous().view(m_batchsize*height,-1,width).permute(0, 2, 1)
 
         
-        # proj_key = self.key_conv(key)
+        proj_key = self.key_conv(key)
         proj_key_H = proj_key.permute(0,3,1,2).contiguous().view(m_batchsize*width,-1,height)
         proj_key_W = proj_key.permute(0,2,1,3).contiguous().view(m_batchsize*height,-1,width)
         
         
-        # proj_value = self.value_conv(value)
+        proj_value = self.value_conv(value)
         proj_value_H = proj_value.permute(0,3,1,2).contiguous().view(m_batchsize*width,-1,height)
         proj_value_W = proj_value.permute(0,2,1,3).contiguous().view(m_batchsize*height,-1,width)
         energy_H = (torch.bmm(proj_query_H, proj_key_H)+self.INF(m_batchsize, height, width)).view(m_batchsize,width,height,height).permute(0,2,1,3)
@@ -338,3 +358,41 @@ class CrissCrossAttention(nn.Module):
         #print(out_H.size(),out_W.size())
         # pdb.set_trace()
         return self.gamma*(out_H + out_W) + value
+        # return self.gamma*(out_H + out_W)
+
+
+
+
+
+class CAM_Module(nn.Module):
+    """ Channel attention module"""
+    def __init__(self, in_dim):
+        super(CAM_Module, self).__init__()
+        self.chanel_in = in_dim
+
+
+        self.gamma = Parameter(torch.zeros(1))
+        self.softmax  = nn.Softmax(dim=-1)
+    def forward(self,x):
+        """
+            inputs :
+                x : input feature maps( B X C X H X W)
+            returns :
+                out : attention value + input feature
+                attention: B X C X C
+        """
+        m_batchsize, C, height, width = x.size()
+        proj_query = x.view(m_batchsize, C, -1)
+        proj_key = x.view(m_batchsize, C, -1).permute(0, 2, 1)
+
+        
+        energy = torch.bmm(proj_query, proj_key)
+        energy_new = torch.max(energy, -1, keepdim=True)[0].expand_as(energy)-energy
+        attention = self.softmax(energy_new)
+        proj_value = x.view(m_batchsize, C, -1)
+        # pdb.set_trace()
+        out = torch.bmm(attention, proj_value)
+        out = out.view(m_batchsize, C, height, width)
+
+        out = self.gamma*out + x
+        return out

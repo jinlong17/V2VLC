@@ -1,7 +1,8 @@
-name: 1.noise_point_pillar_opv2v
+name: 6.V2VAM_point_pillar_opv2v_no8CCNetV1_S_V7finetun_3 #5.V2VAM_point_pillar_opv2v_no8CCNetV1_S_V4_5 #6.point_pillar_opv2v_NO_Fusion_Att_inter #5.V2VAM_point_pillar_opv2v_no8CCNet_S #3.V2VAM_point_pillar_opv2v_OrigCCNet_no8_no_value_add_ego_v_CAM #3_noised_AveFuse_point_pillar_opv2v  #2.V2Vatt_point_pillar_opv2v
 #root_dir: '/home/runshengxu/project/Cooperative_perception/opencood/tmp'
 root_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/train"
 validate_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/validate"
+# validate_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/test_culver_city"
 
 wild_setting:
   async: false
@@ -17,7 +18,7 @@ wild_setting:
 yaml_parser: "load_point_pillar_params"
 train_params:
   batch_size: &batch_size 4
-  epoches: &epoches 60
+  epoches: &epoches 120 #120
   eval_freq: 1
   save_freq: 1
   max_cav: &max_cav 5
@@ -109,7 +110,7 @@ loss:
 
 optimizer:
   core_method: Adam
-  lr: 0.001
+  lr: 0.0001 #0.001
   args:
     eps: 1e-10
     weight_decay: 1e-4
@@ -117,7 +118,11 @@ optimizer:
 lr_scheduler:
     core_method: cosineannealwarm #step, multistep, Exponential and cosineannealwarm support
     epoches: *epoches
-    warmup_lr: 2e-4
-    warmup_epoches: 10
+    warmup_lr: 2e-5 #2e-4
+    warmup_epoches: 10  #10
     lr_min: 2e-5
 
+# lr_scheduler:
+#   core_method: multistep #step, multistep and Exponential support
+#   gamma: 0.1
+#   step_size: [10, 15]

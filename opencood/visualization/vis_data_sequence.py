@@ -1,3 +1,11 @@
+'''
+Descripttion: 
+version: 
+Author: Jinlong Li CSU PhD
+Date: 2022-11-03 23:53:26
+LastEditors: Jinlong Li CSU PhD
+LastEditTime: 2022-11-30 00:36:20
+'''
 import os
 import argparse
 from torch.utils.data import DataLoader
@@ -10,7 +18,7 @@ from opencood.data_utils.datasets.early_fusion_vis_dataset import \
 
 def vis_parser():
     parser = argparse.ArgumentParser(description="data visualization")
-    parser.add_argument('--color_mode', type=str, default="constant",
+    parser.add_argument('--color_mode', type=str, default="v2vreal",
                         help='lidar color rendering mode, e.g. intensity,'
                              'z-value or constant.')
     parser.add_argument('--isSim', action='store_true')

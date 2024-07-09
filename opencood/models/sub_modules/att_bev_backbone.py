@@ -8,7 +8,7 @@ from opencood.models.sub_modules.auto_encoder import AutoEncoder
 
 ######
 from opencood.models.sub_modules.KPN import KPN, KPN_cov, LossFunc, eval_noise_Loss, LossBasic, KPN_MAX, KPN_with_core, LossBasic
-from opencood.models.sub_modules.self_attn import V2V_AttFusion, regroup
+from opencood.models.sub_modules.self_attn import V2V_AttFusion, regroup_1
 from opencood.models.sub_modules.noise import data_dropout, data_dropout_uniform,transmission_with_noise
 
 
@@ -126,7 +126,7 @@ class AttBEVBackbone(nn.Module):
     '''
     def operation_noise(self, x, record_len):
 
-        split_x = regroup(x, record_len)
+        split_x = regroup_1(x, record_len)
         out = []
         p = np.random.randint(0, 100)/100
         # p=0.5

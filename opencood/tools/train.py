@@ -2,10 +2,6 @@ import argparse
 import os
 import statistics
 
-import sys
-sys.path.append('/home/jinlong/4.3D_detection/Noise_V2V/v2vreal')
-sys.path.append('/home/jinlong/4.3D_detection/Noise_V2V/v2vreal/opencood')
-
 
 import torch
 import tqdm
@@ -15,7 +11,6 @@ from tensorboardX import SummaryWriter
 import opencood.hypes_yaml.yaml_utils as yaml_utils
 from opencood.tools import train_utils
 from opencood.data_utils.datasets import build_dataset
-
 
 def train_parser():
     parser = argparse.ArgumentParser(description="synthetic data generation")
@@ -38,10 +33,7 @@ def main():
     hypes = yaml_utils.load_yaml(opt.hypes_yaml, opt)
 
     print('Dataset Building')
-
-
-
-
+    print(hypes['name'], 'is created!!')
 
 
 
@@ -88,20 +80,27 @@ def main():
     # if we want to train from last checkpoint.
     if opt.model_dir:
         saved_path = opt.model_dir
-        init_epoch, model = train_utils.load_saved_model(saved_path, model)
-        print('Loaded model from {}'.format(saved_path))
+        init_epoch, model = train_utils.load_saved_model(saved_path,
+                                                         model)
 
     else:
+
         if opt.model:
             saved_path = train_utils.setup_train(hypes)
+            '''
+            load the pretrained 3D detection model
+            '''
             model_path = opt.model
             init_epoch = 0
-            pretrained_state = torch.load(os.path.join(model_path,'latest.pth'))
+            pretrained_state = torch.load(model_path)
+
+            # model.load_state_dict(pretrained_state['model_state_dict'])
+            #########
             model_dict = model.state_dict()
             pretrained_state = {k: v for k, v in pretrained_state.items() if (k in model_dict and v.shape == model_dict[k].shape)}
             model_dict.update(pretrained_state)
             model.load_state_dict(model_dict)
-            print('Loaded pretrained model from {}'.format(model_path))
+            print('Loaded pretrained model from {}'.format(model_path))   
 
         else:
             init_epoch = 0
@@ -111,6 +110,9 @@ def main():
 
     # record training
     writer = SummaryWriter(saved_path)
+
+    txt_path = os.path.join(saved_path, 'training_eval_log.txt')
+    txt_log = open(txt_path, "w")
 
     # half precision training
     if opt.half:
@@ -148,8 +150,7 @@ def main():
                     ouput_dict = model(batch_data['ego'])
                     final_loss = criterion(ouput_dict, batch_data['ego']['label_dict'])
 
-            # criterion.logging(epoch, i, len(train_loader), writer, pbar=pbar2)
-            criterion.logging_kpn(epoch, i, len(train_loader), writer, ouput_dict, pbar=pbar2)
+            criterion.logging(epoch, i, len(train_loader), writer, pbar=pbar2)
             pbar2.update(1)
             # back-propagation
             if not opt.half:
@@ -182,14 +183,21 @@ def main():
 
             writer.add_scalar('Validate_Loss', valid_ave_loss, epoch)
 
+            txt_log.write('At epoch  ' + str(epoch+1)+',  the validation loss is '+ str(valid_ave_loss) + '\n')
+            
+
         if epoch % hypes['train_params']['save_freq'] == 0:
             torch.save(model.state_dict(),
                        os.path.join(saved_path,
                                     'net_epoch%d.pth' % (epoch + 1)))
+            
+            # run["model_save_path"].append(os.path.join(saved_path, 'net_epoch%d.pth' % (epoch + 1)))
 
         opencood_train_dataset.reinitialize()
 
     print('Training Finished, checkpoints saved to %s' % saved_path)
+
+    # run.stop()
 
 
 if __name__ == '__main__':

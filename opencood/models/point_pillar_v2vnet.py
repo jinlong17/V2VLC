@@ -10,6 +10,11 @@ from opencood.models.sub_modules.naive_compress import NaiveCompressor
 from opencood.models.sub_modules.v2v_fuse import V2VNetFusion
 
 
+from opencood.models.sub_modules.KPN import KPN, KPN_cov, LossFunc, eval_noise_Loss, LossBasic, KPN_MAX, KPN_with_core, LossBasic
+from opencood.models.sub_modules.self_attn import V2V_AttFusion, regroup_1
+from opencood.models.sub_modules.noise import data_dropout, data_dropout_uniform,transmission_with_noise
+import numpy as np
+
 class PointPillarV2VNet(nn.Module):
     def __init__(self, args):
         super(PointPillarV2VNet, self).__init__()
@@ -42,6 +47,27 @@ class PointPillarV2VNet(nn.Module):
 
         if args['backbone_fix']:
             self.backbone_fix()
+
+
+        self.noise = True###########noise
+    '''
+    add the noise for feature map
+    '''
+    def operation_noise(self, x, record_len):
+
+        split_x = regroup_1(x, record_len)
+        out = []
+        p = np.random.randint(0, 100)/100
+        # p=0.5
+        key_max=30   #22.5
+        for xx in split_x:
+            if xx.size()[0] > 1: # generating training noise without ego feature map
+                xx = data_dropout_uniform(xx, p=p, key_max=key_max)
+            out.append(xx)
+        
+        x = torch.cat(out, dim=0)
+        return x
+
 
     def backbone_fix(self):
         """
@@ -107,17 +133,33 @@ class PointPillarV2VNet(nn.Module):
         # compressor
         if self.compression:
             spatial_features_2d = self.naive_compressor(spatial_features_2d)
-        fused_feature = self.fusion_net(spatial_features_2d,
+
+        #add the noise
+        if self.noise:
+            spatial_features_2d_repair = self.operation_noise(spatial_features_2d.clone(), record_len)
+        # KPN_loss= eval_noise_Loss(spatial_features_2d_repair, spatial_features_2d)
+        # print("KPN_loss: ", KPN_loss.item())
+
+
+        fused_feature = self.fusion_net(spatial_features_2d_repair,
                                         record_len,
                                         pairwise_t_matrix,
                                         prior_encoding)
+
+        # fused_feature = self.fusion_net(spatial_features_2d,
+        #                                 record_len,
+        #                                 pairwise_t_matrix,
+        #                                 prior_encoding)
 
         psm = self.cls_head(fused_feature)
         rm = self.reg_head(fused_feature)
 
         # output_dict = {'psm': psm,
         #                'rm': rm}
+        # output_dict = {'psm': psm,
+        #                'rm': rm,
+        #                'L1_diff_loss': KPN_loss.item()}
         output_dict = {'psm': psm,
                        'rm': rm,
-                       'L1_diff_loss': batch_dict['L1_diff_loss']}
+                       'L1_diff_loss': 0}
         return output_dict

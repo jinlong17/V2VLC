@@ -7,6 +7,7 @@ import torch
 from opencood.utils.common_utils import torch_tensor_to_numpy
 
 
+
 def inference_late_fusion(batch_data, model, dataset):
     """
     Model inference for late fusion.
@@ -28,6 +29,15 @@ def inference_late_fusion(batch_data, model, dataset):
 
     for cav_id, cav_content in batch_data.items():
         output_dict[cav_id] = model(cav_content)
+
+    # for cav_id, cav_content in batch_data.items():
+    #     # pdb.set_trace()
+    #     if cav_id == 'ego':
+    #         output_dict[cav_id] = model(cav_content)
+    #         # print(cav_id)
+    #     else:
+    #         continue
+
 
     pred_box_tensor, pred_score, gt_box_tensor = \
         dataset.post_process(batch_data,
@@ -64,6 +74,37 @@ def inference_early_fusion(batch_data, model, dataset):
 
     return pred_box_tensor, pred_score, gt_box_tensor
 
+def inference_early_fusion_with_lcrn(batch_data, model, dataset):
+    """
+    Model inference for early fusion.
+
+    Parameters
+    ----------
+    batch_data : dict
+    model : opencood.object
+    dataset : opencood.EarlyFusionDataset
+
+    Returns
+    -------
+    pred_box_tensor : torch.Tensor
+        The tensor of prediction bounding box after NMS.
+    gt_box_tensor : torch.Tensor
+        The tensor of gt bounding box.
+    """
+    output_dict = OrderedDict()
+    cav_content = batch_data['ego']
+
+    ouput_dict = model[0](cav_content)
+    spatial_features_2d_repaired = model[1](ouput_dict)
+    # spatial_features_2d_repaired = ouput_dict['spatial_features_2d']
+    output_dict['ego'] = model[2](spatial_features_2d_repaired,ouput_dict)
+
+    pred_box_tensor, pred_score, gt_box_tensor = \
+        dataset.post_process(batch_data,
+                             output_dict)
+
+    return pred_box_tensor, pred_score, gt_box_tensor
+
 
 def inference_intermediate_fusion(batch_data, model, dataset):
     """
@@ -82,7 +123,10 @@ def inference_intermediate_fusion(batch_data, model, dataset):
     gt_box_tensor : torch.Tensor
         The tensor of gt bounding box.
     """
+    # return inference_early_fusion(batch_data, model, dataset)
     return inference_early_fusion(batch_data, model, dataset)
+
+
 
 
 def save_prediction_gt(pred_tensor, gt_tensor, pcd, timestamp, save_path):

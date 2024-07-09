@@ -1,3 +1,11 @@
+'''
+Descripttion: 
+version: 
+Author: Jinlong Li CSU PhD
+Date: 2022-11-03 23:53:26
+LastEditors: Jinlong Li CSU PhD
+LastEditTime: 2023-08-18 17:08:49
+'''
 import torch
 import torch.nn as nn
 

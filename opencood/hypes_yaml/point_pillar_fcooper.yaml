@@ -1,4 +1,4 @@
-name: 1.noise_point_pillar_fcooper
+name: 2.noise_point_pillar_fcooper_with_conv
 #root_dir: '/home/runshengxu/project/Cooperative_perception/opencood/tmp'
 root_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/train"
 validate_dir: "/home/jinlong/jinlong_NAS/Dataset/3D-detection/opv2v_data_dumping/validate"
@@ -17,7 +17,7 @@ wild_setting:
 yaml_parser: "load_point_pillar_params"
 train_params:
   batch_size: &batch_size 4
-  epoches: &epoches 40
+  epoches: &epoches 60
   eval_freq: 1
   save_freq: 1
   max_cav: &max_cav 2
@@ -109,7 +109,7 @@ loss:
 
 optimizer:
   core_method: Adam
-  lr: 0.0001 #0.002
+  lr: 0.002 #0.002
   args:
     eps: 1e-10
     weight_decay: 1e-4
@@ -117,7 +117,7 @@ optimizer:
 lr_scheduler:
     core_method: cosineannealwarm #step, multistep, Exponential and cosineannealwarm support
     epoches: *epoches
-    warmup_lr: 2e-4
+    warmup_lr: 2e-3
     warmup_epoches: 10
     lr_min: 2e-5
 

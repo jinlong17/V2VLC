@@ -12,8 +12,9 @@ from opencood.models.sub_modules.self_attn import AttFusion
 
 ######
 from opencood.models.sub_modules.KPN import KPN, KPN_cov, LossFunc, eval_noise_Loss, LossBasic, KPN_MAX, KPN_with_core, LossBasic
-from opencood.models.sub_modules.self_attn import V2V_AttFusion, regroup
-from opencood.models.sub_modules.noise import data_dropout, data_dropout_uniform,transmission_with_noise
+from opencood.models.sub_modules.self_attn import V2V_AttFusion, Adding_fusion, regroup_1,V2V_S_AttFusion, NO_Fusion_Att
+from opencood.models.sub_modules.noise import data_dropout, data_dropout_uniform,transmission_with_noise,data_dropout_feature_with_channel
+import numpy as np
 
 class PointPillarOPV2V(nn.Module):
     def __init__(self, args):
@@ -38,9 +39,13 @@ class PointPillarOPV2V(nn.Module):
             self.compression = True
             self.naive_compressor = NaiveCompressor(256, args['compression'])
 
-        self.fusion_net = AttFusion(256)
-        ###########################
+        # self.fusion_net = AttFusion(256)
+        ##########################
         # self.fusion_net = V2V_AttFusion(256)
+        self.fusion_net = V2V_S_AttFusion(256)
+        # self.fusion_net = NO_Fusion_Att(256)
+        ############################
+        # self.fusion_net = Adding_fusion(256)
 
         self.cls_head = nn.Conv2d(128 * 2, args['anchor_number'],
                                   kernel_size=1)
@@ -50,9 +55,38 @@ class PointPillarOPV2V(nn.Module):
         if args['backbone_fix']:
             self.backbone_fix()
 
+
+        self.noise = True###########noise
+        self.l1_loss  = []
+        # self.conv = nn.Conv2d(256, 256,
+        #                           kernel_size=1)
+    '''
+    add the noise for feature map
+    '''
+    def operation_noise(self, x, record_len):
+
+        split_x = regroup_1(x, record_len)
+        out = []
+        p = np.random.randint(0, 100)/100
+        # p = 0.001
+        # p=0.5
+        key_max=30 #30  #22.5
+        
+        for xx in split_x:
+            if xx.size()[0] > 1: # generating training noise without ego feature map
+                # key_max = int(torch.max(xx).item() + 1)
+                xx = data_dropout_uniform(xx, p=p, key_max=key_max)
+            out.append(xx)
+        
+        x = torch.cat(out, dim=0)
+        return x
+        # x = data_dropout_feature_with_channel(x, p=p, key_max=key_max,record_len=record_len)
+        # return self.conv(x)
+        # return x
+
     def backbone_fix(self):
         """
-        Fix the parameters of backbone during finetune on timedelay。
+        Fix the parameters of backbone during finetune on timedelay
         """
         for p in self.pillar_vfe.parameters():
             p.requires_grad = False
@@ -104,6 +138,13 @@ class PointPillarOPV2V(nn.Module):
         if self.compression:
             spatial_features_2d = self.naive_compressor(spatial_features_2d)
 
+        #add the noise
+        # if self.noise:
+        #     spatial_features_2d_repair = self.operation_noise(spatial_features_2d.clone(), record_len)
+        # KPN_loss= eval_noise_Loss(spatial_features_2d_repair, spatial_features_2d)
+        # fused_feature = self.fusion_net(spatial_features_2d_repair, record_len)
+
+
         fused_feature = self.fusion_net(spatial_features_2d, record_len)
 
         psm = self.cls_head(fused_feature)
@@ -111,7 +152,12 @@ class PointPillarOPV2V(nn.Module):
 
         # output_dict = {'psm': psm,
         #                'rm': rm}
+
+        # output_dict = {'psm': psm,
+        #                'rm': rm,
+        #                'L1_diff_loss': KPN_loss.item()}
+        
         output_dict = {'psm': psm,
                        'rm': rm,
-                       'L1_diff_loss': batch_dict['L1_diff_loss']}
+                       'L1_diff_loss': 0}
         return output_dict

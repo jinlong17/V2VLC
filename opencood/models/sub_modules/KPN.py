@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from torchsummary import summary
+# from torchsummary import summary
 import torchvision.models as models
 
 import pdb
@@ -94,19 +94,20 @@ class CharbonnierLoss(nn.Module):
 # def eval_noise_Loss(pred, ground_truth):
 
 #     l1_loss = nn.L1Loss()
-#     l2_loss = nn.MSELoss()
+#     # l2_loss = nn.MSELoss()
 
-#     return l1_loss(pred, ground_truth), l2_loss(pred, ground_truth)
+#     return l1_loss(pred, ground_truth) #, l2_loss(pred, ground_truth)
 
 
 
 def eval_noise_Loss(pred, ground_truth):
     
-    l1_loss = nn.L1Loss()
+    # l1_loss = nn.L1Loss()
     # l2_loss = nn.MSELoss()
-    # smooth_l1_loss = nn.SmoothL1Loss()
+    # smooth_l1_loss = nn.SmoothL1Loss(reduction='sum')
+    smooth_l1_loss = nn.SmoothL1Loss()
 
-    return l1_loss(pred, ground_truth)
+    return smooth_l1_loss(pred, ground_truth)
 
 
 
@@ -245,22 +246,45 @@ class AlginLoss(nn.Module):
 
 # KPN基本网路单元
 class Basic(nn.Module):
-    def __init__(self, in_ch, out_ch, g=16, channel_att=False, spatial_att=False,bn=False):
+    def __init__(self, in_ch, out_ch, g=16, channel_att=False, spatial_att=False,bn=True):
         super(Basic, self).__init__()
         self.channel_att = channel_att
         self.spatial_att = spatial_att
         if bn :
+            # self.conv1 = nn.Sequential(
+            #         nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=3, stride=1, padding=1),
+            #         nn.BatchNorm2d(out_ch,eps=1e-5, momentum=0.01, affine=True),
+            #         nn.ReLU(),
+            #         nn.Conv2d(in_channels=out_ch, out_channels=out_ch, kernel_size=3, stride=1, padding=1),
+            #         nn.BatchNorm2d(out_ch,eps=1e-5, momentum=0.01, affine=True),
+            #         nn.ReLU(),
+            #         nn.Conv2d(in_channels=out_ch, out_channels=out_ch, kernel_size=3, stride=1, padding=1),
+            #         nn.BatchNorm2d(out_ch,eps=1e-5, momentum=0.01, affine=True),
+            #         nn.ReLU()
+            #     )
             self.conv1 = nn.Sequential(
-                    nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=3, stride=1, padding=1),
+                    nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=1),
                     nn.BatchNorm2d(out_ch,eps=1e-5, momentum=0.01, affine=True),
                     nn.ReLU(),
-                    nn.Conv2d(in_channels=out_ch, out_channels=out_ch, kernel_size=3, stride=1, padding=1),
+                    nn.Conv2d(in_channels=out_ch, out_channels=out_ch, kernel_size=1),
                     nn.BatchNorm2d(out_ch,eps=1e-5, momentum=0.01, affine=True),
                     nn.ReLU(),
-                    nn.Conv2d(in_channels=out_ch, out_channels=out_ch, kernel_size=3, stride=1, padding=1),
+                    nn.Conv2d(in_channels=out_ch, out_channels=out_ch, kernel_size=1),
                     nn.BatchNorm2d(out_ch,eps=1e-5, momentum=0.01, affine=True),
                     nn.ReLU()
                 )
+        #    self.conv1 = nn.Sequential(
+        #             nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=5, stride=1, padding=2),
+        #             nn.BatchNorm2d(out_ch,eps=1e-5, momentum=0.01, affine=True),
+        #             nn.ReLU(),
+        #             nn.Conv2d(in_channels=out_ch, out_channels=out_ch, kernel_size=5, stride=1, padding=2),
+        #             nn.BatchNorm2d(out_ch,eps=1e-5, momentum=0.01, affine=True),
+        #             nn.ReLU(),
+        #             nn.Conv2d(in_channels=out_ch, out_channels=out_ch, kernel_size=5, stride=1, padding=2),
+        #             nn.BatchNorm2d(out_ch,eps=1e-5, momentum=0.01, affine=True),
+        #             nn.ReLU()
+        #         )
+
         else:
             self.conv1 = nn.Sequential(
                 nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=3, stride=1, padding=1),
@@ -324,7 +348,12 @@ class KPN_MAX(nn.Module):
         #TODO:jinlong
         self.in_channel = in_channel
         self.out_channel = in_channel
-        self.num = 32
+        self.num = 128
+        # self.cov = nn.Sequential(
+        #         nn.Conv2d(in_channels=self.in_channel, out_channels=self.in_channel, kernel_size=1),
+        #         nn.BatchNorm2d(self.in_channel,eps=1e-5, momentum=0.01, affine=True),
+        #         nn.ReLU()
+        #     )
 
 
         if core_bias:
@@ -366,6 +395,8 @@ class KPN_MAX(nn.Module):
         :return: pred_img_i and img_pred
         """
         # pdb.set_trace()
+        # conv0 =  self.cov(data_with_est)
+        # conv1 = self.conv1(conv0)
         conv1 = self.conv1(data_with_est)
         conv2 = self.conv2(F.avg_pool2d(conv1, kernel_size=2, stride=2))
         conv3 = self.conv3(F.avg_pool2d(conv2, kernel_size=2, stride=2))
@@ -401,11 +432,6 @@ class KPN(nn.Module):
 
         self.color_channel = 3 if color else 1
 
-        # in_channel = (3 if color else 1) * (burst_length if blind_est else burst_length+1)
-        # in_channel= in_channel*burst_length
-        # out_channel = (2 * sum(kernel_size) if sep_conv else np.sum(np.array(kernel_size) ** 2)) * burst_length
-        # out_channel = (3 if color else 1) * (2 * sum(kernel_size) if sep_conv else np.sum(np.array(kernel_size) ** 2)) * burst_length
-
         #TODO:jinlong
         self.in_channel = in_channel
         self.out_channel = in_channel
@@ -432,6 +458,12 @@ class KPN(nn.Module):
 
         self.apply(self._init_weights)
 
+        self.weight_conv = nn.Sequential(
+                nn.Conv2d(in_channels=self.in_channel, out_channels=self.in_channel, kernel_size=1),
+                nn.BatchNorm2d(self.in_channel,eps=1e-5, momentum=0.01, affine=True),
+                nn.ReLU()
+            )
+
     @staticmethod
     def _init_weights(m):
         if isinstance(m, nn.Conv2d):
@@ -440,6 +472,8 @@ class KPN(nn.Module):
         elif isinstance(m, nn.Linear):
             nn.init.xavier_normal_(m.weight.data)
             nn.init.constant_(m.bias.data, 0.0)
+
+    
 
     # 前向传播函数
     def forward(self, data_with_est, data, white_level=1.0):
@@ -450,27 +484,25 @@ class KPN(nn.Module):
         :return: pred_img_i and img_pred
         """
         # pdb.set_trace()
-        conv1 = self.conv1(data_with_est)
+        self.confidence_aware =torch.ones_like(data_with_est)
+        data_with_est_1 = torch.where(data_with_est<1, data_with_est, self.confidence_aware)
+        data = torch.where(data<1, data, self.confidence_aware)
+
+        conv1 = self.conv1(data_with_est_1)
+        # conv1 = self.conv1(data_with_est)
         conv2 = self.conv2(F.avg_pool2d(conv1, kernel_size=2, stride=2))
         conv3 = self.conv3(F.avg_pool2d(conv2, kernel_size=2, stride=2))
         conv4 = self.conv4(F.avg_pool2d(conv3, kernel_size=2, stride=2))
         conv5 = self.conv5(F.avg_pool2d(conv4, kernel_size=2, stride=2))
         # 开始上采样  同时要进行skip connection
-        # pdb.set_trace()
-        # conv6 = self.conv6(torch.cat([conv4, F.interpolate(conv5, scale_factor=2, mode=self.upMode, align_corners=True)], dim=1))
-        # conv7 = self.conv7(torch.cat([conv3, F.interpolate(conv6, scale_factor=2, mode=self.upMode, align_corners=True)], dim=1))
-        # conv8 = self.conv8(torch.cat([conv2, F.interpolate(conv7,scale_factor=2, mode=self.upMode, align_corners=True)], dim=1))
-                # return channel K*K*N
-        # core = self.outc(F.interpolate(conv8, scale_factor=2, mode=self.upMode, align_corners=True))
         conv6 = self.conv6(torch.cat([conv4, F.interpolate(conv5,size=conv4.size()[-2:],  mode=self.upMode, align_corners=True)], dim=1))
         conv7 = self.conv7(torch.cat([conv3, F.interpolate(conv6,size=conv3.size()[-2:],  mode=self.upMode, align_corners=True)], dim=1))
         conv8 = self.conv8(torch.cat([conv2, F.interpolate(conv7,size=conv2.size()[-2:],  mode=self.upMode, align_corners=True)], dim=1))
         core = self.outc(F.interpolate(conv8, size=data.size()[-2:], mode=self.upMode, align_corners=True))
-        # pdb.set_trace()
 
-        # pdb.set_trace()
-    
-        return self.kernel_pred(data, core, white_level)
+        # return self.weight_conv(data + core)
+        # return data_with_est_1
+        return data + core
 
 
 

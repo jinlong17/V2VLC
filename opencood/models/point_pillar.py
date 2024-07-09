@@ -1,3 +1,11 @@
+'''
+Descripttion: 
+version: 
+Author: Jinlong Li CSU PhD
+Date: 2022-11-03 23:53:26
+LastEditors: Jinlong Li CSU PhD
+LastEditTime: 2023-01-26 00:42:22
+'''
 import torch.nn as nn
 
 from opencood.models.sub_modules.pillar_vfe import PillarVFE
@@ -5,6 +13,7 @@ from opencood.models.sub_modules.point_pillar_scatter import PointPillarScatter
 from opencood.models.sub_modules.base_bev_backbone import BaseBEVBackbone
 from opencood.models.sub_modules.downsample_conv import DownsampleConv
 
+from opencood.models.sub_modules.self_attn import V2V_AttFusion, Adding_fusion, regroup_1,V2V_S_AttFusion, NO_Fusion_Att
 
 class PointPillar(nn.Module):
     def __init__(self, args):
@@ -29,6 +38,8 @@ class PointPillar(nn.Module):
                                   7 * args['anchor_number'],
                                   kernel_size=1)
 
+        self.fusion_net = NO_Fusion_Att(256)
+
     def forward(self, data_dict):
 
         voxel_features = data_dict['processed_lidar']['voxel_features']
@@ -47,10 +58,18 @@ class PointPillar(nn.Module):
         if self.shrink_flag:
             spatial_features_2d = self.shrink_conv(spatial_features_2d)
 
+        #####
+        fused_feature = self.fusion_net(spatial_features_2d, 1)
+
+        ######
+
+
         psm = self.cls_head(spatial_features_2d)
         rm = self.reg_head(spatial_features_2d)
 
+        # output_dict = {'psm': psm,
+        #                'rm': rm}
         output_dict = {'psm': psm,
-                       'rm': rm}
-
+                       'rm': rm,
+                       'L1_diff_loss': 0}
         return output_dict
